@@ -1,0 +1,39 @@
+﻿{% extends "base.html" %}
+
+{% block title %}全部报价附件{% endblock %}
+
+{% block content %}
+<h1>全部报价附件</h1>
+<p class="sub">共 {{ total }} 个附件，按专案分组</p>
+
+{% for group in groups %}
+<div class="card" style="margin-bottom:18px;">
+  <h3 style="margin:0 0 10px;color:#1F4E79;font-size:15px;">
+    {{ group.project.name }}
+    <span style="font-weight:normal;font-size:12px;color:#888;">
+      （{{ group.project.code|default:"—" }} ｜ {{ group.project.customer }} ｜ {{ group.items|length }} 个附件）
+    </span>
+  </h3>
+  <table>
+    <thead>
+      <tr><th>标题</th><th>上传人</th><th>上传时间</th><th>操作</th></tr>
+    </thead>
+    <tbody>
+      {% for item in group.items %}
+      <tr>
+        <td>{{ item.title }}</td>
+        <td>{{ item.uploaded_by|default:"—" }}</td>
+        <td>{{ item.uploaded_at|date:"Y-m-d H:i" }}</td>
+        <td>
+          <a class="btn alt" href="{{ item.file.url }}" target="_blank">下载</a>
+          <a class="btn alt" href="{% url 'attachment_library' group.project.id %}">进入该专案</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% empty %}
+<p class="sub">还没有任何附件。进入专案的「报价附件库」上传即可。</p>
+{% endfor %}
+{% endblock %}
