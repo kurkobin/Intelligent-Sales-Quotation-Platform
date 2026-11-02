@@ -1,0 +1,111 @@
+﻿{% extends "base.html" %}
+
+{% block title %}ERP 主数据同步{% endblock %}
+
+{% block content %}
+<h1>ERP 主数据同步</h1>
+<p class="sub">
+  金蝶 K/3 Cloud → 报价平台，单向全量 upsert。本期只取 汇率 / 供应商 / 料号，不回写 ERP。
+</p>
+
+{% if messages %}
+  {% for message in messages %}
+    <div class="{% if message.tags == 'error' %}msg-error{% else %}msg-success{% endif %}">{{ message }}</div>
+  {% endfor %}
+{% endif %}
+
+<div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:18px;">
+  <div class="card" style="flex:1;min-width:180px;">
+    <div style="font-size:12px;color:#889;">汇率 ExchangeRate</div>
+    <div style="font-size:26px;font-weight:bold;color:#1F4E79;">{{ rate_count }}</div>
+    <div style="font-size:12px;color:#888;">最后同步：{{ rate_synced|date:"Y-m-d H:i:s"|default:"从未同步" }}</div>
+  </div>
+  <div class="card" style="flex:1;min-width:180px;">
+    <div style="font-size:12px;color:#889;">供应商 Supplier</div>
+    <div style="font-size:26px;font-weight:bold;color:#1F4E79;">{{ supplier_count }}</div>
+    <div style="font-size:12px;color:#888;">最后同步：{{ supplier_synced|date:"Y-m-d H:i:s"|default:"从未同步" }}</div>
+  </div>
+  <div class="card" style="flex:1;min-width:180px;">
+    <div style="font-size:12px;color:#889;">料号 ItemMaster</div>
+    <div style="font-size:26px;font-weight:bold;color:#1F4E79;">{{ item_count }}</div>
+    <div style="font-size:12px;color:#888;">最后同步：{{ item_synced|date:"Y-m-d H:i:s"|default:"从未同步" }}</div>
+  </div>
+  <div class="card" style="flex:1;min-width:180px;">
+    <div style="font-size:12px;color:#889;">调用日志</div>
+    <div style="font-size:26px;font-weight:bold;color:#1F4E79;">{{ ok_logs }}<span style="font-size:14px;color:#888;"> 成功</span></div>
+    <div style="font-size:12px;color:#c00;">失败 {{ fail_logs }} 条</div>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:18px;">
+  <h2 style="font-size:16px;color:#1F4E79;margin-top:0;">连接信息</h2>
+  <table>
+    <tr><th style="width:160px;">连接模式</th><td>{{ mode }}</td></tr>
+    <tr><th>接口地址</th><td><code>{{ base_url }}</code></td></tr>
+    <tr><th>数据中心ID</th><td><code>{{ acct_id }}</code></td></tr>
+    <tr><th>账号</th><td><code>{{ erp_user }}</code>（密码在 .env）</td></tr>
+    <tr><th>超时 / 重试</th><td>{{ timeout }} 秒 / 最多 {{ max_attempts }} 次（指数退避 1s、2s）</td></tr>
+  </table>
+
+  <div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap;">
+    <form method="post">{% csrf_token %}
+      <input type="hidden" name="action" value="test">
+      <button class="btn alt" type="submit">测试连接</button>
+    </form>
+    <form method="post">{% csrf_token %}
+      <input type="hidden" name="action" value="sync">
+      <input type="hidden" name="what" value="all">
+      <button class="btn" type="submit">立即同步（全部）</button>
+    </form>
+    <form method="post">{% csrf_token %}
+      <input type="hidden" name="action" value="sync">
+      <input type="hidden" name="what" value="rates">
+      <button class="btn alt" type="submit">同步汇率</button>
+    </form>
+    <form method="post">{% csrf_token %}
+      <input type="hidden" name="action" value="sync">
+      <input type="hidden" name="what" value="suppliers">
+      <button class="btn alt" type="submit">同步供应商</button>
+    </form>
+    <form method="post">{% csrf_token %}
+      <input type="hidden" name="action" value="sync">
+      <input type="hidden" name="what" value="items">
+      <button class="btn alt" type="submit">同步料号</button>
+    </form>
+  </div>
+  <div class="sub" style="margin-top:12px;margin-bottom:0;">
+    同步是「全量 upsert」：ERP 里有的会新增或更新，本地多余的不会被删除；重复点不会产生重复数据。
+  </div>
+</div>
+
+<div class="card">
+  <h2 style="font-size:16px;color:#1F4E79;margin-top:0;">最近调用日志</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>时间</th><th>动作</th><th>对象</th><th>结果</th><th>耗时</th><th>错误</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for log in logs %}
+      <tr>
+        <td>{{ log.created_at|date:"m-d H:i:s" }}</td>
+        <td>{{ log.get_action_display }}</td>
+        <td>{{ log.entity|default:"—" }}</td>
+        <td>
+          {% if log.ok %}<span style="color:#080;">成功</span>
+          {% else %}<span style="color:#c00;font-weight:bold;">失败</span>{% endif %}
+        </td>
+        <td>{{ log.duration_ms }} ms</td>
+        <td style="text-align:left;font-size:12px;color:#a00;">{{ log.error|truncatechars:80|default:"—" }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="6" style="text-align:left;color:#888;">还没有调用记录，点上面的「测试连接」试试</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <div class="sub" style="margin-top:10px;margin-bottom:0;">
+    完整报文在 <a href="/admin/erp/erplog/">后台调用日志</a>。
+  </div>
+</div>
+{% endblock %}

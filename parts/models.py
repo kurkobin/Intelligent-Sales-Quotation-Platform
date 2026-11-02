@@ -24,6 +24,10 @@ class Part(models.Model):
     qty = models.PositiveIntegerField("数量", default=1)
     category = models.CharField("分类", max_length=20, choices=CATEGORY_CHOICES, default="外购件")
     material = models.CharField("材质", max_length=100, blank=True)
+    item_master = models.ForeignKey(
+        "masterdata.ItemMaster", null=True, blank=True,
+        on_delete=models.SET_NULL, verbose_name="料号", related_name="parts",
+    )
     sheet_material = models.ForeignKey(
         "masterdata.SheetMaterial", null=True, blank=True,
         on_delete=models.SET_NULL, verbose_name="钣金材料（自动算重量）", related_name="parts",

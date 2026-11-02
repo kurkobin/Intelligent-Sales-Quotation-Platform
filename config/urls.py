@@ -11,6 +11,7 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("accounts/login/", RememberMeLoginView.as_view(), name="login"),
     path("accounts/logout/", auth_views.LogoutView.as_view(), name="logout"),
+    path("erp/", include("erp.urls")),
     path("", include("quotes.urls")),
 ]
 

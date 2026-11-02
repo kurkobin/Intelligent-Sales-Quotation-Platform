@@ -55,6 +55,7 @@ INSTALLED_APPS = [
     'parts',
     'quotes',
     'masterdata',
+    'erp',
 ]
 
 MIDDLEWARE = [
@@ -183,3 +184,23 @@ EXCHANGE_RATES = {
     "USD": Decimal("7.2"),
     "NTD": Decimal("0.23"),
 }
+
+
+# ---------------- ERP 集成（金蝶 K/3 Cloud）----------------
+# 全部从 .env 读，代码里不放真实地址和密码。
+#   ERP_MODE=offline  → 不联网，直接读种子数据（自检用）
+#   ERP_MODE=mock     → 连本机假 ERP（模拟ERP金蝶系统，端口 9900）
+#   ERP_MODE=http     → 连真实金蝶（把 ERP_BASE_URL 指向真服务器即可）
+ERP_MODE = os.environ.get("ERP_MODE", "mock").strip().lower()
+ERP_BASE_URL = os.environ.get("ERP_BASE_URL", "http://127.0.0.1:9900/K3Cloud").strip().rstrip("/")
+ERP_ACCT_ID = os.environ.get("ERP_ACCT_ID", "").strip()
+ERP_USER = os.environ.get("ERP_USER", "").strip()
+ERP_PASSWORD = os.environ.get("ERP_PASSWORD", "")
+ERP_TIMEOUT = int(os.environ.get("ERP_TIMEOUT", "30") or 30)
+# 单次调用最多尝试几次（=1 表示不重试）；次数多了失败等待会变长
+ERP_MAX_ATTEMPTS = int(os.environ.get("ERP_MAX_ATTEMPTS", "3") or 3)
+# 指数退避秒数：第 1 次失败后等 1s，第 2 次后等 2s，第 3 次后等 4s（不会再等，因为尝试次数到了）
+ERP_RETRY_DELAYS = (1, 2, 4)
+
+# 独立模拟 ERP 的目录（manage.py erp_server 转调它；离线适配器也从这里读种子）
+ERP_MOCK_DIR = os.environ.get("ERP_MOCK_DIR") or str(BASE_DIR.parent / "模拟ERP金蝶系统")

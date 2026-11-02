@@ -3,6 +3,7 @@ from django.contrib import admin
 from .models import (
     ExchangeRate,
     InjectionParam,
+    ItemMaster,
     LineWage,
     SheetMaterial,
     StaffMember,
@@ -14,9 +15,9 @@ from .models import (
 
 @admin.register(Supplier)
 class SupplierAdmin(admin.ModelAdmin):
-    list_display = ("name", "contact", "email", "category", "status")
+    list_display = ("name", "number", "contact", "email", "category", "status", "synced_at")
     list_filter = ("status", "category")
-    search_fields = ("name", "contact", "email")
+    search_fields = ("name", "contact", "email", "number", "erp_id")
 
 
 @admin.register(StaffMember)
@@ -28,9 +29,9 @@ class StaffMemberAdmin(admin.ModelAdmin):
 
 @admin.register(ExchangeRate)
 class ExchangeRateAdmin(admin.ModelAdmin):
-    list_display = ("year", "base_currency", "currency", "rate")
+    list_display = ("year", "base_currency", "currency", "rate", "erp_id", "synced_at")
     list_filter = ("year", "base_currency")
-    search_fields = ("currency",)
+    search_fields = ("currency", "erp_id")
 
 
 @admin.register(WageRate)
@@ -64,3 +65,11 @@ class StampLaborAdmin(admin.ModelAdmin):
 class InjectionParamAdmin(admin.ModelAdmin):
     list_display = ("machine_type", "forming_time", "wage", "assembly_capacity", "mold_rack_fee")
     search_fields = ("machine_type",)
+
+
+@admin.register(ItemMaster)
+class ItemMasterAdmin(admin.ModelAdmin):
+    list_display = ("number", "name", "spec", "unit", "material", "category", "is_active", "synced_at")
+    list_filter = ("is_active", "category", "material")
+    search_fields = ("number", "name", "spec", "erp_id")
+    ordering = ("number",)

@@ -12,6 +12,11 @@ class Supplier(models.Model):
     category = models.CharField("负责品类", max_length=50, blank=True)
     status = models.CharField("状态", max_length=10, choices=STATUS_CHOICES, default="启用")
 
+    # ---- 以下三项由 ERP 同步维护（见 erp/services.py）----
+    erp_id = models.CharField("ERP内码", max_length=60, blank=True, db_index=True)
+    number = models.CharField("供应商编码", max_length=60, blank=True)
+    synced_at = models.DateTimeField("最后同步", null=True, blank=True)
+
     class Meta:
         verbose_name = "供应商"
         verbose_name_plural = "供应商"
@@ -43,7 +48,11 @@ class ExchangeRate(models.Model):
     year = models.IntegerField("年度", default=2026)
     base_currency = models.CharField("本币", max_length=10, default="RMB")
     currency = models.CharField("币别", max_length=10)
-    rate = models.DecimalField("汇率（1 本币 = ? 该币别）", max_digits=14, decimal_places=6, default=1)
+    rate = models.DecimalField("汇率（1 外币 = ? RMB）", max_digits=14, decimal_places=6, default=1)
+
+    # ---- ERP 同步维护 ----
+    erp_id = models.CharField("ERP内码", max_length=60, blank=True)
+    synced_at = models.DateTimeField("最后同步", null=True, blank=True)
 
     class Meta:
         verbose_name = "汇率"
@@ -153,3 +162,29 @@ class InjectionParam(models.Model):
 
     def __str__(self):
         return self.machine_type
+
+
+class ItemMaster(models.Model):
+    """料号主数据（来自 ERP 的 BD_MATERIAL）
+
+    一期只做「查得到、选得着」：零件可以挂在料号上，
+    成本/价格计算仍然走原来的估价参数，料号不参与算价。
+    """
+    erp_id = models.CharField("ERP内码", max_length=60, blank=True, db_index=True)
+    number = models.CharField("料号", max_length=60, unique=True)
+    name = models.CharField("名称", max_length=200)
+    spec = models.CharField("规格", max_length=200, blank=True)
+    unit = models.CharField("单位", max_length=20, blank=True)
+    material = models.CharField("材质", max_length=100, blank=True)
+    unit_price = models.DecimalField("单价", max_digits=14, decimal_places=4, default=0)
+    category = models.CharField("分类", max_length=50, blank=True)
+    is_active = models.BooleanField("启用", default=True)
+    synced_at = models.DateTimeField("最后同步", null=True, blank=True)
+
+    class Meta:
+        verbose_name = "料号主数据"
+        verbose_name_plural = "料号主数据"
+        ordering = ["number"]
+
+    def __str__(self):
+        return f"{self.number} {self.name}"
