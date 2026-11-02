@@ -1,0 +1,85 @@
+﻿{% extends "base.html" %}
+
+{% block title %}报表查询{% endblock %}
+
+{% block content %}
+<h1>报表查询</h1>
+<p class="sub">按专案与成本类别查询；支持 BOM COST 查询与厂商询价报表。</p>
+
+<form method="get" class="inline-form" style="margin-bottom:18px;">
+  <div>
+    <label>报表类型</label>
+    <select name="rtype" style="width:150px;">
+      <option value="bom" {% if rtype == "bom" %}selected{% endif %}>BOM COST 查询</option>
+      <option value="supplier" {% if rtype == "supplier" %}selected{% endif %}>厂商询价报表</option>
+    </select>
+  </div>
+  <div>
+    <label>专案名称</label>
+    <select name="project" style="width:220px;">
+      <option value="">请选择专案</option>
+      {% for p in projects %}
+      <option value="{{ p.id }}" {% if project and p.id == project.id %}selected{% endif %}>{{ p.name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div>
+    <label>成本类别</label>
+    <select name="category" style="width:130px;">
+      <option value="">全部类别</option>
+      {% for c in categories %}
+      <option value="{{ c }}" {% if category == c %}selected{% endif %}>{{ c }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <button class="btn" type="submit">查询</button>
+  {% if project and rtype == "bom" %}
+  <a class="btn alt" href="{% url 'export_bom_cost' project.id %}">导出 Excel</a>
+  {% endif %}
+</form>
+
+{% if project %}
+  {% if rtype == "supplier" %}
+    <h3 style="color:#1F4E79;">{{ project.name }} — 厂商询价报表</h3>
+    <table>
+      <thead><tr><th>零件</th><th>分类</th><th>供应商</th><th>币别</th><th>单价</th><th>模具费</th><th>配额%</th></tr></thead>
+      <tbody>
+        {% for s in supplier_rows %}
+        <tr>
+          <td>{{ s.part.name }}</td>
+          <td>{{ s.part.category }}</td>
+          <td>{{ s.supplier_name }}</td>
+          <td>{{ s.currency }}</td>
+          <td>{{ s.price }}</td>
+          <td>{{ s.mold_fee }}</td>
+          <td>{{ s.quota }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7">没有询价记录</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <h3 style="color:#1F4E79;">{{ project.name }}（{{ project.version }}）</h3>
+    <table>
+      <thead><tr><th>零件</th><th>分类</th><th>材料费</th><th>加工费</th><th>表面处理费</th><th>模具费</th></tr></thead>
+      <tbody>
+        {% for row in rows %}
+        <tr>
+          <td>{{ row.part.name }}</td>
+          <td>{{ row.part.category }}</td>
+          <td>{{ row.material }}</td>
+          <td>{{ row.process }}</td>
+          <td>{{ row.finish }}</td>
+          <td>{{ row.mold }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6">没有符合条件的零件</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% endif %}
+{% else %}
+  <p class="sub">请先选择专案后点击「查询」。</p>
+{% endif %}
+{% endblock %}

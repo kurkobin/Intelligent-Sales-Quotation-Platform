@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block title %}填写报价 - {{ part.name }}{% endblock %}
+
+{% block content %}
+<h1>填写报价</h1>
+<p class="sub">专案：{{ part.project.name }} ｜ 零件：{{ part.name }}（{{ part.category }}）</p>
+
+{% if quote.status == "submitted" %}
+  <p style="color:#080;font-weight:bold;">已提交（只读）。如需修改，请先「取消提交」。</p>
+  <table style="max-width:980px;">
+    <thead>
+      <tr><th>材料费</th><th>加工费</th><th>表面处理费</th><th>模具费</th><th>委外加工费</th><th>委外表处费</th><th>NCT加工费</th><th>小计</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>{{ quote.material }}</td><td>{{ quote.process }}</td><td>{{ quote.finish }}</td>
+        <td>{{ quote.mold_fee }}</td><td>{{ quote.outsource_process_fee }}</td><td>{{ quote.outsource_finish_fee }}</td>
+        <td>{{ quote.nct_fee }}</td><td>{{ quote.total }}</td>
+      </tr>
+    </tbody>
+  </table>
+  <form method="post" style="margin-top:16px;">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="unsubmit">
+    <button class="btn alt" type="submit">取消提交</button>
+  </form>
+{% else %}
+  <form method="post" class="card" style="max-width:560px;">
+    {% csrf_token %}
+    <label>材料费（RMB）</label>
+    <input type="number" step="0.01" name="material" value="{{ quote.material }}">
+    <label>加工费（RMB）</label>
+    <input type="number" step="0.01" name="process" value="{{ quote.process }}">
+    <label>表面处理费（RMB）</label>
+    <input type="number" step="0.01" name="finish" value="{{ quote.finish }}">
+    <label>模具费（RMB 含税）</label>
+    <input type="number" step="0.01" name="mold_fee" value="{{ quote.mold_fee }}">
+    <label>委外加工费（RMB 未税）</label>
+    <input type="number" step="0.01" name="outsource_process_fee" value="{{ quote.outsource_process_fee }}">
+    <label>委外表处费（RMB 未税）</label>
+    <input type="number" step="0.01" name="outsource_finish_fee" value="{{ quote.outsource_finish_fee }}">
+    <label>NCT加工费（RMB）</label>
+    <input type="number" step="0.01" name="nct_fee" value="{{ quote.nct_fee }}">
+    <div style="margin-top:20px;">
+      <button class="btn" type="submit" name="action" value="save">保存草稿</button>
+      <button class="btn alt" type="submit" name="action" value="submit">提交</button>
+    </div>
+  </form>
+{% endif %}
+
+<p style="margin-top:16px;"><a class="btn alt" href="{% url 'my_tasks' %}">← 返回我的任务</a></p>
+{% endblock %}

@@ -1,0 +1,45 @@
+﻿{% extends "base.html" %}
+
+{% block title %}我的包材任务 - {{ project.name }}{% endblock %}
+
+{% block content %}
+<h1>我的包材任务</h1>
+<p class="sub">专案：{{ project.name }} ｜ 金额 = 组成用量 × 采购单价</p>
+
+<div class="card">
+  <form method="post" class="inline-form">
+    {% csrf_token %}
+    <div><label>料号</label><input name="part_no" style="width:110px;"></div>
+    <div><label>品名</label><input name="name" required style="width:140px;"></div>
+    <div><label>单位</label><input name="unit" style="width:70px;"></div>
+    <div><label>组成用量</label><input name="usage" type="number" step="0.0001" style="width:90px;"></div>
+    <div><label>采购单价</label><input name="unit_price" type="number" step="0.0001" style="width:90px;"></div>
+    <button class="btn" type="submit">新增包材</button>
+  </form>
+</div>
+
+<table style="margin-top:16px;">
+  <thead>
+    <tr><th>料号</th><th>品名</th><th>单位</th><th>组成用量</th><th>采购单价</th><th>金额</th></tr>
+  </thead>
+  <tbody>
+    {% for item in items %}
+    <tr>
+      <td>{{ item.part_no }}</td>
+      <td>{{ item.name }}</td>
+      <td>{{ item.unit }}</td>
+      <td>{{ item.usage }}</td>
+      <td>{{ item.unit_price }}</td>
+      <td>{{ item.amount|floatformat:2 }}</td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="6">还没有包材明细</td></tr>
+    {% endfor %}
+  </tbody>
+  <tfoot>
+    <tr><td colspan="5">包材小计</td><td>{{ total|floatformat:2 }}</td></tr>
+  </tfoot>
+</table>
+
+<p style="margin-top:16px;"><a class="btn alt" href="{% url 'bom_cost' project.id %}">← 返回 BOM COST</a></p>
+{% endblock %}

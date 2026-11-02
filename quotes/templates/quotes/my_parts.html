@@ -1,0 +1,28 @@
+﻿{% extends "base.html" %}
+
+{% block title %}我的零件任务{% endblock %}
+
+{% block content %}
+<h1>我的零件任务</h1>
+<p class="sub">成本人员指派给你的外购件；供应商与回价请在「采购员报价填写」登记。</p>
+
+<table>
+  <thead>
+    <tr><th>专案</th><th>零件</th><th>分类</th><th>数量</th><th>报价状态</th><th>操作</th></tr>
+  </thead>
+  <tbody>
+    {% for part in parts %}
+    <tr>
+      <td>{{ part.project.name }}</td>
+      <td>{{ part.name }}</td>
+      <td>{{ part.category }}</td>
+      <td>{{ part.qty }}</td>
+      <td>{% if part.quote %}{% if part.quote.status == "submitted" %}已提交{% else %}草稿{% endif %}{% else %}未填写{% endif %}</td>
+      <td><a class="btn alt" href="{% url 'supplier_quotes' part.id %}">采购员报价</a></td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="6">目前没有指派给你的零件</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

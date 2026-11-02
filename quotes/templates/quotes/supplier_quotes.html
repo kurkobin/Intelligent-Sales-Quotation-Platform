@@ -1,0 +1,58 @@
+﻿{% extends "base.html" %}
+
+{% block title %}采购员报价填写 - {{ part.name }}{% endblock %}
+
+{% block content %}
+<h1>采购员报价填写</h1>
+<p class="sub">专案：{{ part.project.name }} ｜ 零件：{{ part.name }}（{{ part.category }}）</p>
+
+<div class="card">
+  <form method="post" class="inline-form">
+    {% csrf_token %}
+    <div><label>供应商名称</label><input name="supplier_name" required style="width:150px;"></div>
+    <div><label>币别</label>
+      <select name="currency" style="width:90px;">
+        <option value="RMB">RMB</option>
+        <option value="USD">USD</option>
+        <option value="NTD">NTD</option>
+      </select>
+    </div>
+    <div><label>单价</label><input name="price" type="number" step="0.01" style="width:90px;"></div>
+    <div><label>模具费</label><input name="mold_fee" type="number" step="0.01" style="width:90px;"></div>
+    <div><label>配额%</label><input name="quota" type="number" step="0.01" style="width:70px;"></div>
+    <button class="btn" type="submit">新增供应商报价</button>
+  </form>
+</div>
+
+<table style="margin-top:16px;">
+  <thead>
+    <tr><th>供应商</th><th>币别</th><th>单价</th><th>模具费</th><th>配额%</th><th>操作</th></tr>
+  </thead>
+  <tbody>
+    {% for q in quotes %}
+    <tr>
+      <td>{{ q.supplier_name }}</td>
+      <td>{{ q.currency }}</td>
+      <td>{{ q.price }}</td>
+      <td>{{ q.mold_fee }}</td>
+      <td>{{ q.quota }}</td>
+      <td>
+        <form method="post" style="display:inline;">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="delete">
+          <input type="hidden" name="sid" value="{{ q.id }}">
+          <button class="btn alt" type="submit" style="background:#ba2121;">删除</button>
+        </form>
+      </td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="6">还没有供应商报价</td></tr>
+    {% endfor %}
+  </tbody>
+  <tfoot>
+    <tr><td colspan="5">最高单价（多家比价取最高价）</td><td>{{ max_price|floatformat:2 }}</td></tr>
+  </tfoot>
+</table>
+
+<p style="margin-top:16px;"><a class="btn alt" href="{% url 'my_parts' %}">← 返回我的零件</a></p>
+{% endblock %}

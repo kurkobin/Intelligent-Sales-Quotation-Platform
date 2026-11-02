@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+
+{% block title %}BOM COST - {{ project.name }}{% endblock %}
+
+{% block content %}
+<h1>BOM COST 汇总</h1>
+<p style="margin:8px 0 4px;">
+  <label style="display:inline;color:#666;">切换专案：</label>
+  <select onchange="if(this.value) location.href='/project/'+this.value+'/bomcost/'"
+          style="width:auto;display:inline-block;padding:6px;border:1px solid #ccc;border-radius:4px;">
+    {% for p in projects %}
+    <option value="{{ p.id }}" {% if p.id == project.id %}selected{% endif %}>{{ p.name }}</option>
+    {% endfor %}
+  </select>
+</p>
+<p class="sub">
+  专案：{{ project.name }}（{{ project.customer }}）｜ 版本：{{ project.version }} ｜ 审核状态：
+  {% if project.bom_status == "approved" %}
+    <span style="color:#080;font-weight:bold;">已审核</span>
+  {% else %}
+    <span style="color:#c80;font-weight:bold;">待审核</span>
+  {% endif %}
+</p>
+
+<p>
+  {% if can_export %}
+  <a class="btn" href="{% url 'export_bom_cost' project.id %}">导出 Excel</a>
+  {% endif %}
+  {% if can_import %}
+  <a class="btn alt" href="{% url 'import_parts' project.id %}">导入零件</a>
+  {% endif %}
+  <a class="btn alt" href="{% url 'upload_3d' project.id %}">上传3D</a>
+  <a class="btn alt" href="{% url 'packaging_tasks' project.id %}">包材任务</a>
+  <a class="btn alt" href="{% url 'assembly_tasks' project.id %}">组装任务</a>
+  <a class="btn alt" href="{% url 'attachment_library' project.id %}">报价附件库</a>
+  <a class="btn alt" href="{% url 'assign_tasks' project.id %}">任务分派</a>
+  <a class="btn alt" href="{% url 'upload_quote_sheet' project.id %}">批量报价</a>
+  <a class="btn alt" href="{% url 'version_history' project.id %}">版本历史</a>
+  {% if can_approve %}
+  <form method="post" action="{% url 'approve_bom' project.id %}" style="display:inline;">
+    {% csrf_token %}
+    <button class="btn" type="submit" style="background:#2e7d32;">审核通过</button>
+  </form>
+  {% endif %}
+  <a class="btn alt" href="{% url 'home' %}">← 返回首页</a>
+</p>
+
+<table>
+  <thead>
+    <tr><th>零件</th><th>分类</th><th>材料费</th><th>加工费</th><th>表面处理费</th><th>模具费</th><th>小计</th></tr>
+  </thead>
+  <tbody>
+    {% for row in rows %}
+    <tr>
+      <td>{{ row.part.name }}</td>
+      <td>{{ row.part.category }}</td>
+      <td>{{ row.material }}</td>
+      <td>{{ row.process }}</td>
+      <td>{{ row.finish }}</td>
+      <td>{{ row.mold }}</td>
+      <td>{{ row.subtotal }}</td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="7">该专案还没有零件</td></tr>
+    {% endfor %}
+  </tbody>
+  <tfoot>
+    <tr>
+      <td colspan="2">零件成本合计</td>
+      <td>{{ total_material }}</td>
+      <td>{{ total_process }}</td>
+      <td>{{ total_finish }}</td>
+      <td>{{ total_mold }}</td>
+      <td>{{ parts_total }}</td>
+    </tr>
+  </tfoot>
+</table>
+
+<div class="card" style="margin-top:16px;max-width:680px;">
+  <h3 style="margin-top:0;color:#1F4E79;">成本汇总</h3>
+  <table>
+    <tbody>
+      <tr><td>零件成本合计（材料+加工+表面处理）</td><td>{{ parts_total|floatformat:2 }}</td></tr>
+      <tr><td>模具费汇总</td><td>{{ total_mold|floatformat:2 }}</td></tr>
+      <tr><td>模摊计提成本（模具费 − 客户支付模具款）÷ 预测量</td><td>{{ mold_amortize|floatformat:2 }}</td></tr>
+      <tr><td>不良成本（材料 + 组装）× 不良率</td><td>{{ defect_cost|floatformat:2 }}</td></tr>
+      <tr><td>包材费</td><td>{{ packaging_total|floatformat:2 }}</td></tr>
+      <tr><td>组装费</td><td>{{ assembly_total|floatformat:2 }}</td></tr>
+      <tr><td style="font-weight:bold;">单套成本合计（RMB 未税）</td><td style="font-weight:bold;">{{ grand_total|floatformat:2 }}</td></tr>
+      {% if project.currency != "RMB" %}
+      <tr><td>折合本币 {{ project.currency }}</td><td>{{ grand_total_local|floatformat:2 }}</td></tr>
+      {% endif %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

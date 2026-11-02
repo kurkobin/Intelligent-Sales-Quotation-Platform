@@ -1,0 +1,37 @@
+﻿{% extends "base.html" %}
+
+{% block title %}报价附件库 - {{ project.name }}{% endblock %}
+
+{% block content %}
+<h1>报价附件库</h1>
+<p class="sub">专案：{{ project.name }} ｜ 集中归档该专案的估价附件</p>
+
+<div class="card" style="max-width:640px;">
+  <form method="post" enctype="multipart/form-data" class="inline-form">
+    {% csrf_token %}
+    <div><label>标题</label><input name="title" style="width:220px;"></div>
+    <div><label>文件</label><input type="file" name="file" required></div>
+    <button class="btn" type="submit">上传</button>
+  </form>
+</div>
+
+<table style="margin-top:16px;">
+  <thead>
+    <tr><th>标题</th><th>上传人</th><th>上传时间</th><th>操作</th></tr>
+  </thead>
+  <tbody>
+    {% for item in items %}
+    <tr>
+      <td>{{ item.title }}</td>
+      <td>{{ item.uploaded_by }}</td>
+      <td>{{ item.uploaded_at|date:"Y-m-d H:i" }}</td>
+      <td><a class="btn alt" href="{{ item.file.url }}" target="_blank">下载</a></td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="4">还没有附件</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<p style="margin-top:16px;"><a class="btn alt" href="{% url 'bom_cost' project.id %}">← 返回 BOM COST</a></p>
+{% endblock %}

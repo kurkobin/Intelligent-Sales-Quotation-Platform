@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="zh-hans">
+<head>
+  <meta charset="utf-8">
+  <title>登录 - 智能销售报价平台</title>
+  <style>
+    body { font-family: "Microsoft YaHei", sans-serif; display: flex; justify-content: center; align-items: center; min-height: 90vh; margin: 0; background: #f5f7fa; }
+    .card { background: white; padding: 32px 40px; border-radius: 8px; box-shadow: 0 2px 12px rgba(0,0,0,.1); width: 320px; }
+    h1 { font-size: 20px; color: #1F4E79; text-align: center; }
+    label { display: block; margin-top: 12px; color: #333; }
+    input { width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
+    .remember { display: flex; align-items: center; gap: 6px; margin-top: 12px; color: #555; font-weight: normal; }
+    .remember input { width: auto; margin: 0; }
+    button { width: 100%; margin-top: 20px; padding: 10px; background: #1F4E79; color: white; border: none; border-radius: 4px; font-size: 15px; cursor: pointer; }
+    .err { color: #c00; margin-top: 10px; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>智能销售报价平台</h1>
+    <form method="post" autocomplete="on">
+      {% csrf_token %}
+      <label for="id_username">用户名</label>
+      <input type="text" id="id_username" name="username" autocomplete="username" required>
+      <label for="id_password">密码</label>
+      <input type="password" id="id_password" name="password" autocomplete="current-password" required>
+      <label class="remember">
+        <input type="checkbox" name="remember_me" value="1"> 保持登录（30 天）
+      </label>
+      <button type="submit">登录</button>
+    </form>
+    {% if form.errors %}
+      <div class="err">用户名或密码不正确，请重试。</div>
+    {% endif %}
+  </div>
+</body>
+</html>

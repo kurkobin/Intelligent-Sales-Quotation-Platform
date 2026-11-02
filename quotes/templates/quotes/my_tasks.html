@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block title %}我的任务{% endblock %}
+
+{% block content %}
+<h1>我的任务</h1>
+<p class="sub">以下是指派给你的零件。</p>
+
+<table>
+  <thead>
+    <tr><th>专案</th><th>零件</th><th>分类</th><th>数量</th><th>我的角色</th><th>报价状态</th><th>操作</th></tr>
+  </thead>
+  <tbody>
+    {% for part in parts %}
+    <tr>
+      <td>{{ part.project.name }}</td>
+      <td>{{ part.name }}</td>
+      <td>{{ part.category }}</td>
+      <td>{{ part.qty }}</td>
+      <td>
+        {% if part.molder_id == user.id %}模具工程师{% endif %}
+        {% if part.evaluator_id == user.id %}评估人员{% endif %}
+        {% if part.purchaser_id == user.id %}采购员{% endif %}
+        {% if part.mold_purchaser_id == user.id %}模具采购{% endif %}
+        {% if part.outsource_buyer_id == user.id %}委外采购{% endif %}
+        {% if part.cnc_engineer_id == user.id %}数控工程师{% endif %}
+      </td>
+      <td>
+        {% if part.quote %}
+          {% if part.quote.status == "submitted" %}已提交{% else %}草稿{% endif %}
+        {% else %}未填写{% endif %}
+      </td>
+      <td><a class="btn alt" href="{% url 'edit_quote' part.id %}">填写报价</a></td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="7">目前没有指派给你的零件</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

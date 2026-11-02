@@ -1,0 +1,32 @@
+﻿{% extends "base.html" %}
+
+{% block title %}版本历史 - {{ project.name }}{% endblock %}
+
+{% block content %}
+<h1>版本历史</h1>
+<p class="sub">专案：{{ project.name }} ｜ 当前版本：{{ project.version }}</p>
+
+<form method="post" style="margin-bottom:16px;">
+  {% csrf_token %}
+  <button class="btn" type="submit" name="action" value="snapshot">保存当前版本快照</button>
+  <button class="btn alt" type="submit" name="action" value="inherit">继承最近快照（复制报价）</button>
+</form>
+
+<table>
+  <thead><tr><th>版本</th><th>报价阶段</th><th>创建时间</th><th>快照零件数</th></tr></thead>
+  <tbody>
+    {% for h in history %}
+    <tr>
+      <td>{{ h.version }}</td>
+      <td>{{ h.quote_phase }}</td>
+      <td>{{ h.created_at|date:"Y-m-d H:i" }}</td>
+      <td>{{ h.snapshot|length }}</td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="4">还没有版本历史。可点上方「保存当前版本快照」生成一条。</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<p style="margin-top:16px;"><a class="btn alt" href="{% url 'bom_cost' project.id %}">← 返回 BOM COST</a></p>
+{% endblock %}

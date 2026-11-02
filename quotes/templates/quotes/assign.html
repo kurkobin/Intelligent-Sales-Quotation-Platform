@@ -1,0 +1,88 @@
+﻿{% extends "base.html" %}
+
+{% block title %}任务分派 - {{ project.name }}{% endblock %}
+
+{% block content %}
+<h1>任务分派</h1>
+<p class="sub">专案：{{ project.name }} ｜ 先做专案级指派，再逐件指派零件负责人</p>
+
+<form method="post">
+  {% csrf_token %}
+
+  <div class="card" style="margin-bottom:16px;">
+    <h3 style="margin-top:0;color:#1F4E79;">专案级指派</h3>
+    <div class="inline-form">
+      <div>
+        <label>包材工程师</label>
+        <select name="packaging_engineer" style="width:180px;">
+          <option value="">未指派</option>
+          {% for u in users %}
+          <option value="{{ u.id }}" {% if project.packaging_engineer_id == u.id %}selected{% endif %}>{{ u.username }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label>IE工程师</label>
+        <select name="ie_engineer" style="width:180px;">
+          <option value="">未指派</option>
+          {% for u in users %}
+          <option value="{{ u.id }}" {% if project.ie_engineer_id == u.id %}selected{% endif %}>{{ u.username }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <h3 style="color:#1F4E79;">零件级指派</h3>
+  <table>
+    <thead>
+      <tr><th>零件</th><th>分类</th><th>模具工程师</th><th>模具采购</th><th>评估人员</th><th>委外采购</th><th>数控工程师</th></tr>
+    </thead>
+    <tbody>
+      {% for part in parts %}
+      <tr>
+        <td>{{ part.name }}</td>
+        <td>{{ part.category }}</td>
+        <td>
+          <select name="molder_{{ part.id }}" style="width:105px;">
+            <option value="">—</option>
+            {% for u in users %}<option value="{{ u.id }}" {% if part.molder_id == u.id %}selected{% endif %}>{{ u.username }}</option>{% endfor %}
+          </select>
+        </td>
+        <td>
+          <select name="moldbuy_{{ part.id }}" style="width:105px;">
+            <option value="">—</option>
+            {% for u in users %}<option value="{{ u.id }}" {% if part.mold_purchaser_id == u.id %}selected{% endif %}>{{ u.username }}</option>{% endfor %}
+          </select>
+        </td>
+        <td>
+          <select name="eval_{{ part.id }}" style="width:105px;">
+            <option value="">—</option>
+            {% for u in users %}<option value="{{ u.id }}" {% if part.evaluator_id == u.id %}selected{% endif %}>{{ u.username }}</option>{% endfor %}
+          </select>
+        </td>
+        <td>
+          <select name="out_{{ part.id }}" style="width:105px;">
+            <option value="">—</option>
+            {% for u in users %}<option value="{{ u.id }}" {% if part.outsource_buyer_id == u.id %}selected{% endif %}>{{ u.username }}</option>{% endfor %}
+          </select>
+        </td>
+        <td>
+          <select name="cnc_{{ part.id }}" style="width:105px;">
+            <option value="">—</option>
+            {% for u in users %}<option value="{{ u.id }}" {% if part.cnc_engineer_id == u.id %}selected{% endif %}>{{ u.username }}</option>{% endfor %}
+          </select>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="7">还没有零件</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <p style="margin-top:16px;">
+    <button class="btn" type="submit">保存分派</button>
+    <a class="btn alt" href="{% url 'bom_cost' project.id %}">← 返回 BOM COST</a>
+  </p>
+</form>
+{% endblock %}

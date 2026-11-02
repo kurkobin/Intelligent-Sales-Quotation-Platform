@@ -1,0 +1,22 @@
+﻿{% extends "base.html" %}
+
+{% block title %}批量上传报价 - {{ project.name }}{% endblock %}
+
+{% block content %}
+<h1>批量上传报价</h1>
+<p class="sub">专案：{{ project.name }}</p>
+
+<div class="card" style="max-width:680px;">
+  {% if success %}<div class="msg-success">{{ success }}</div>{% endif %}
+  {% if error %}<div class="msg-error">{{ error }}</div>{% endif %}
+  <p class="sub">步骤：先「下载模板」→ 在 Excel 里填好 → 原样上传。模板里的「零件编号」栏请勿删除，系统靠它对号入座。</p>
+  <p><a class="btn alt" href="{% url 'download_quote_template' project.id %}">下载模板</a></p>
+  <form method="post" enctype="multipart/form-data" style="margin-top:12px;">
+    {% csrf_token %}
+    <input type="file" name="file" accept=".xlsx" required>
+    <button class="btn" type="submit">上传填好的表格</button>
+  </form>
+</div>
+
+<p style="margin-top:16px;"><a class="btn alt" href="{% url 'bom_cost' project.id %}">← 返回 BOM COST</a></p>
+{% endblock %}

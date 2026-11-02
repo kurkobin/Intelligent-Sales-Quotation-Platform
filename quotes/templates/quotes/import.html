@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block title %}导入零件 - {{ project.name }}{% endblock %}
+
+{% block content %}
+<h1>导入零件清单</h1>
+<p class="sub">当前专案：{{ project.name }}</p>
+
+<div class="card" style="max-width: 620px;">
+  {% if success %}<div class="msg-success">{{ success }}</div>{% endif %}
+  {% if error %}<div class="msg-error">{{ error }}</div>{% endif %}
+
+  <p style="line-height:1.9; color:#666;">
+    Excel 格式要求（第一行是表头，从第二行开始是数据）：<br>
+    A 列：零件名称　B 列：数量　C 列：分类（冲压钣金件 / NCT钣金件 / 注塑件 / 外购件）
+  </p>
+
+  <form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    <input type="file" name="file" accept=".xlsx">
+    <button class="btn" type="submit">开始导入</button>
+  </form>
+</div>
+
+<p style="margin-top:20px;">
+  <a class="btn alt" href="{% url 'bom_cost' project.id %}">← 返回 BOM COST</a>
+</p>
+{% endblock %}

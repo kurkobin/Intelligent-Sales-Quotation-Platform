@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block title %}首页 - 智能销售报价平台{% endblock %}
+
+{% block content %}
+<h1>专案列表</h1>
+<table>
+  <thead>
+    <tr><th>专案名称</th><th>客户</th><th>版本</th><th>零件数</th><th>操作</th></tr>
+  </thead>
+  <tbody>
+    {% for project in projects %}
+    <tr>
+      <td>{{ project.name }}</td>
+      <td>{{ project.customer }}</td>
+      <td>{{ project.version }}</td>
+      <td>{{ project.parts.count }}</td>
+      <td><a class="btn" href="{% url 'bom_cost' project.id %}">查看 BOM COST</a></td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="5">还没有专案，请先去后台添加</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

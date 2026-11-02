@@ -1,0 +1,75 @@
+{% extends "admin/base.html" %}
+
+{% block title %}{{ title }} | 智能销售报价平台{% endblock %}
+
+{% block branding %}
+<h1 id="site-name"><a href="{% url 'admin:index' %}">智能销售报价平台 · 数据后台</a></h1>
+{% endblock %}
+
+{% block extrastyle %}
+{{ block.super }}
+<style>
+  /* ---------- 配色统一 ---------- */
+  :root, html[data-theme="light"] {
+    --primary: #4a7bb0;
+    --secondary: #1F4E79;
+    --header-bg: #1F4E79;
+    --header-color: #ffffff;
+    --header-branding-color: #ffffff;
+    --breadcrumbs-bg: #16375a;
+    --link-fg: #1F4E79;
+    --link-hover-color: #16375a;
+    --button-bg: #1F4E79;
+    --button-hover-bg: #16375a;
+    --default-button-bg: #16375a;
+    --object-tools-bg: #4a7bb0;
+    --object-tools-hover-bg: #1F4E79;
+  }
+
+  /* ---------- 首页两栏：左侧应用列表，右侧「最近动作」 ---------- */
+  .dashboard #content {
+    display: grid;
+    grid-template-columns: 1fr 300px;   /* 左边自适应，右边 300px */
+    column-gap: 24px;
+    align-items: start;
+    width: auto;        /* 取消原来的 600px 固定宽度 */
+    margin-right: 0;    /* 取消 colMS 预留的 300px */
+  }
+  .dashboard #content .titles-and-tools {
+    grid-column: 1 / -1;   /* 标题栏横跨两栏 */
+  }
+  .dashboard #content-main {
+    grid-column: 1;        /* 应用列表：左栏 */
+    float: none;
+    width: auto;
+  }
+  .dashboard #content-related {
+    grid-column: 2;        /* 最近动作：右栏 */
+    float: none;
+    width: auto;
+    margin: 0;
+  }
+  .dashboard #content > br.clear {
+    display: none;
+  }
+  /* 应用分组标题：浅色 */
+.module caption {
+    background: #dce7f2;   /* 浅蓝底 */
+    color: #1F4E79;        /* 深蓝字 */
+}
+.module caption a.section,
+.module caption a.section:link,
+.module caption a.section:visited {
+    color: #1F4E79;
+}
+</style>
+{% endblock %}
+
+{% block userlinks %}
+  {% if site_url %}<a href="{{ site_url }}">查看站点</a> / {% endif %}
+  <form id="logout-form" method="post" action="{% url 'admin:logout' %}">
+    {% csrf_token %}
+    <button type="submit">退出</button>
+  </form>
+  {% include "admin/color_theme_toggle.html" %}
+{% endblock %}

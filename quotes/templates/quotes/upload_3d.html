@@ -1,0 +1,41 @@
+﻿{% extends "base.html" %}
+
+{% block title %}上传3D图档 - {{ project.name }}{% endblock %}
+
+{% block content %}
+<h1>上传 3D 图档</h1>
+<p class="sub">专案：{{ project.name }} ｜ 支持 .stp / .step / .igs / .iges</p>
+
+<div class="card" style="max-width:700px;">
+  {% if success %}<div class="msg-success">{{ success }}</div>{% endif %}
+  {% if error %}<div class="msg-error">{{ error }}</div>{% endif %}
+  <p class="sub">系统会用 OpenCascade 解析出每个零件的包围盒尺寸与体积，并自动生成零件清单。分类默认「外购件」，可后续修改。</p>
+  <form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    <input type="file" name="file" accept=".stp,.step,.igs,.iges" required>
+    <button class="btn" type="submit">上传并解析</button>
+  </form>
+</div>
+
+{% if items %}
+<h3 style="color:#1F4E79;margin-top:20px;">解析结果</h3>
+<table>
+  <thead>
+    <tr><th>零件</th><th>尺寸 X (mm)</th><th>尺寸 Y (mm)</th><th>尺寸 Z (mm)</th><th>体积 (mm³)</th></tr>
+  </thead>
+  <tbody>
+    {% for it in items %}
+    <tr>
+      <td>{{ it.name }}</td>
+      <td>{{ it.x }}</td>
+      <td>{{ it.y }}</td>
+      <td>{{ it.z }}</td>
+      <td>{{ it.volume }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+<p style="margin-top:16px;"><a class="btn alt" href="{% url 'bom_cost' project.id %}">← 返回 BOM COST</a></p>
+{% endblock %}
