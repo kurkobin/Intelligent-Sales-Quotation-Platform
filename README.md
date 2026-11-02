@@ -78,6 +78,13 @@ python -c "from django.core.management.utils import get_random_secret_key; print
 - `masterdata/`  主数据维护
 - `templates/admin/` 后台自定义模板
 
+## 图片展示
+<img width="2549" height="1403" alt="评估人员界面" src="https://github.com/user-attachments/assets/af3a8967-417d-4cb5-b0d6-4739861180e4" />
+<img width="1275" height="702" alt="销售人员界面" src="https://github.com/user-attachments/assets/f1b53fbb-bd7f-4fc9-a36a-b7365454686d" />
+<img width="1275" height="702" alt="图片一" src="https://github.com/user-attachments/assets/10998a6c-ac35-457a-aeca-b40cf7ea0cf0" />
+
+
+
 ## 升级注意
 
 本次新增多个模型和字段，升级后务必执行：
