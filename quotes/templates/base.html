@@ -54,7 +54,7 @@
     <aside class="sidebar">
       <div class="nav-group">
         <div class="grp">专案管理</div>
-        <a href="{% url 'home' %}">专案与客户文档</a>
+        <a href="{% url 'home' %}">专案列表</a>
         {% if user.is_staff %}<a href="/admin/projects/project/">专案维护（后台）</a>{% endif %}
       </div>
 
@@ -79,7 +79,6 @@
       <div class="nav-group">
         <div class="grp">报价产出</div>
         <a href="{% url 'dashboard' %}">报价进度看板</a>
-        <a href="{% url 'home' %}">生成 BOM COST</a>
       </div>
 
       {% if user.is_staff %}
@@ -99,7 +98,6 @@
       <div class="nav-group">
         <div class="grp">报表查询</div>
         <a href="{% url 'report_query' %}">报表查询</a>
-        <a href="{% url 'dashboard' %}">报价进度看板</a>
       </div>
     </aside>
 
