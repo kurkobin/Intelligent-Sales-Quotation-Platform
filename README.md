@@ -81,7 +81,6 @@ python -c "from django.core.management.utils import get_random_secret_key; print
 ## 图片展示
 <img width="2549" height="1403" alt="页面展示2" src="https://github.com/user-attachments/assets/fee17e53-28a1-4da8-8615-ca8d63d32ac0" />
 <img width="2549" height="1403" alt="评估人员界面" src="https://github.com/user-attachments/assets/af3a8967-417d-4cb5-b0d6-4739861180e4" />
-<img width="1275" height="702" alt="销售人员界面" src="https://github.com/user-attachments/assets/f1b53fbb-bd7f-4fc9-a36a-b7365454686d" />
 <img width="1275" height="702" alt="图片一" src="https://github.com/user-attachments/assets/10998a6c-ac35-457a-aeca-b40cf7ea0cf0" />
 <img width="2549" height="1403" alt="页面展示" src="https://github.com/user-attachments/assets/1b5a03f3-3256-4383-bb29-8879759077cd" />
 <img width="2549" height="1403" alt="页面展示1" src="https://github.com/user-attachments/assets/907bc3d4-77f5-43b6-8252-28db6c7d2182" />
