@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.conf import settings
 from django.db import models
 from projects.models import Project
@@ -22,6 +24,10 @@ class Part(models.Model):
     qty = models.PositiveIntegerField("数量", default=1)
     category = models.CharField("分类", max_length=20, choices=CATEGORY_CHOICES, default="外购件")
     material = models.CharField("材质", max_length=100, blank=True)
+    sheet_material = models.ForeignKey(
+        "masterdata.SheetMaterial", null=True, blank=True,
+        on_delete=models.SET_NULL, verbose_name="钣金材料（自动算重量）", related_name="parts",
+    )
     remark = models.CharField("备注", max_length=200, blank=True)
 
     # 3D 解析结果
@@ -62,3 +68,22 @@ class Part(models.Model):
 
     def __str__(self):
         return f"{self.name}（{self.project.name}）"
+
+    @property
+    def weight_kg(self):
+        """按 体积 × 密度 估算重量（kg）
+
+        体积单位 mm³ → cm³ 除以 1000；密度单位 g/cm³；克 → 千克 再除以 1000
+        """
+        sm = self.sheet_material
+        if not sm or not self.volume:
+            return Decimal("0")
+        return (self.volume / Decimal("1000")) * sm.density / Decimal("1000")
+
+    @property
+    def auto_material_cost(self):
+        """自动材料费 = 重量(kg) × 单价(元/kg)"""
+        sm = self.sheet_material
+        if not sm or not sm.unit_price:
+            return Decimal("0")
+        return self.weight_kg * sm.unit_price

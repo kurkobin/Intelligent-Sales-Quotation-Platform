@@ -42,7 +42,7 @@ class WageRateAdmin(admin.ModelAdmin):
 
 @admin.register(SheetMaterial)
 class SheetMaterialAdmin(admin.ModelAdmin):
-    list_display = ("brand", "material", "density")
+    list_display = ("brand", "material", "density", "unit_price")
     search_fields = ("brand", "material")
 
 

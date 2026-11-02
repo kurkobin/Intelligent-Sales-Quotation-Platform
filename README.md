@@ -4,25 +4,23 @@
 
 ## 界面预览
 
-**主界面（专案列表，成本/管理员视角）**
+**BOM COST 汇总页**
 
-![主界面](images/主界面.jpg)
+![BOM COST 汇总](images/页面展示.png)
 
 **销售人员视角**（只看得到自己负责的专案）
 
-![销售人员界面](images/销售人员界面.jpg)
+![销售人员界面](images/销售人员界面.png)
 
 **评估人员视角**（只看到指派给自己的任务）
 
-![评估人员界面](images/评估人员界面.jpg)
+![评估人员界面](images/评估人员界面.png)
 
-**页面展示**
+**更多页面**
 
-![页面展示](images/页面展示.jpg)
+![页面展示1](images/页面展示1.png)
 
-![页面展示1](images/页面展示1.jpg)
-
-![页面展示2](images/页面展示2.jpg)
+![页面展示2](images/页面展示2.png)
 
 
 ## 运行环境
@@ -67,6 +65,7 @@ python -c "from django.core.management.utils import get_random_secret_key; print
 ### 零件与 3D
 - 零件清单、Excel 导入
 - **上传 3D 图档（.stp/.step/.igs/.iges）→ OpenCascade 自动解析出零件的包围盒尺寸与体积，生成零件清单**
+- **自动材料费**：选好「钣金材料」后，按 `体积 × 密度 ÷ 10⁶ = 重量(kg)`、`重量 × 单价 = 材料费` 自动算出参考值
 - 不支持 .x_t（Parasolid 需商业引擎）
 
 ### 报价作业
@@ -78,6 +77,8 @@ python -c "from django.core.management.utils import get_random_secret_key; print
 
 ### 报价产出
 - BOM COST 完整公式：零件成本 + 模摊计提 + 不良成本 + 包材费 + 组装费
+- **汇率读「汇率维护」表**：按当年、再按该币别最新一年取值，表里没有才回退到默认值；页面会标明汇率来源
+- **未税折算**：模具费按含税录入，按专案的增值税率折算成未税后再摊提
 - 多币别折算、审核流程、商务版 Excel 导出
 - 包材任务、组装任务、供应商多家比价、报价附件库
 - 报表查询（BOM COST 查询 / 厂商询价报表）
@@ -100,14 +101,6 @@ python -c "from django.core.management.utils import get_random_secret_key; print
 - `quotes/`      报价、BOM COST、3D 解析（cad_parser.py）、模板
 - `masterdata/`  主数据维护
 - `templates/admin/` 后台自定义模板
-
-## 图片展示
-<img width="2549" height="1403" alt="页面展示2" src="https://github.com/user-attachments/assets/fee17e53-28a1-4da8-8615-ca8d63d32ac0" />
-<img width="2549" height="1403" alt="评估人员界面" src="https://github.com/user-attachments/assets/af3a8967-417d-4cb5-b0d6-4739861180e4" />
-<img width="1275" height="702" alt="图片一" src="https://github.com/user-attachments/assets/10998a6c-ac35-457a-aeca-b40cf7ea0cf0" />
-<img width="2549" height="1403" alt="页面展示" src="https://github.com/user-attachments/assets/1b5a03f3-3256-4383-bb29-8879759077cd" />
-<img width="2549" height="1403" alt="页面展示1" src="https://github.com/user-attachments/assets/907bc3d4-77f5-43b6-8252-28db6c7d2182" />
-
 
 ## 升级注意
 

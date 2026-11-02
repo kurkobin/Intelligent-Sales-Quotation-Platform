@@ -75,6 +75,8 @@ class Project(models.Model):
     )
     customer_mold_payment = models.DecimalField("客户支付模具款（元）", max_digits=14, decimal_places=2, default=0)
     defect_rate = models.DecimalField("不良率（%）", max_digits=6, decimal_places=2, default=0)
+    tax_rate = models.DecimalField("增值税率（%）", max_digits=5, decimal_places=2, default=13,
+                                   help_text="模具费默认按含税录入，BOM COST 里会折算成未税")
     created_at = models.DateTimeField("创建时间", auto_now_add=True)
 
     class Meta:

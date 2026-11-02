@@ -47,7 +47,7 @@
 
 <table>
   <thead>
-    <tr><th>零件</th><th>分类</th><th>材料费</th><th>加工费</th><th>表面处理费</th><th>模具费</th><th>小计</th></tr>
+    <tr><th>零件</th><th>分类</th><th>材料费</th><th title="按 体积×密度×单价 自动算出，仅供参考">自动材料费</th><th>加工费</th><th>表面处理费</th><th>模具费</th><th>小计</th></tr>
   </thead>
   <tbody>
     {% for row in rows %}
@@ -55,19 +55,21 @@
       <td>{{ row.part.name }}</td>
       <td>{{ row.part.category }}</td>
       <td>{{ row.material }}</td>
+      <td style="color:#888;">{{ row.auto_material|floatformat:2 }}</td>
       <td>{{ row.process }}</td>
       <td>{{ row.finish }}</td>
       <td>{{ row.mold }}</td>
       <td>{{ row.subtotal }}</td>
     </tr>
     {% empty %}
-    <tr><td colspan="7">该专案还没有零件</td></tr>
+    <tr><td colspan="8">该专案还没有零件</td></tr>
     {% endfor %}
   </tbody>
   <tfoot>
     <tr>
       <td colspan="2">零件成本合计</td>
       <td>{{ total_material }}</td>
+      <td></td>
       <td>{{ total_process }}</td>
       <td>{{ total_finish }}</td>
       <td>{{ total_mold }}</td>
@@ -81,14 +83,23 @@
   <table>
     <tbody>
       <tr><td>零件成本合计（材料+加工+表面处理）</td><td>{{ parts_total|floatformat:2 }}</td></tr>
-      <tr><td>模具费汇总</td><td>{{ total_mold|floatformat:2 }}</td></tr>
-      <tr><td>模摊计提成本（模具费 − 客户支付模具款）÷ 预测量</td><td>{{ mold_amortize|floatformat:2 }}</td></tr>
+      <tr><td>模具费汇总（含税）</td><td>{{ total_mold|floatformat:2 }}</td></tr>
+      <tr><td>减：客户支付模具款</td><td>-{{ project.customer_mold_payment|floatformat:2 }}</td></tr>
+      <tr><td>模具费净额（含税）</td><td>{{ mold_net|floatformat:2 }}</td></tr>
+      <tr>
+        <td>模具费净额（未税，÷(1+{{ tax_rate }}%)）</td>
+        <td style="color:#1F4E79;font-weight:bold;">{{ mold_net_excl|floatformat:2 }}</td>
+      </tr>
+      <tr><td>模摊计提成本 = 未税净额 ÷ 预测量</td><td>{{ mold_amortize|floatformat:2 }}</td></tr>
       <tr><td>不良成本（材料 + 组装）× 不良率</td><td>{{ defect_cost|floatformat:2 }}</td></tr>
       <tr><td>包材费</td><td>{{ packaging_total|floatformat:2 }}</td></tr>
       <tr><td>组装费</td><td>{{ assembly_total|floatformat:2 }}</td></tr>
       <tr><td style="font-weight:bold;">单套成本合计（RMB 未税）</td><td style="font-weight:bold;">{{ grand_total|floatformat:2 }}</td></tr>
       {% if project.currency != "RMB" %}
-      <tr><td>折合本币 {{ project.currency }}</td><td>{{ grand_total_local|floatformat:2 }}</td></tr>
+      <tr>
+        <td>折合 {{ project.currency }}　<span style="color:#888;font-size:12px;">（1 {{ project.currency }} = {{ rate }} RMB，来源：{{ rate_source }}）</span></td>
+        <td>{{ grand_total_local|floatformat:2 }}</td>
+      </tr>
       {% endif %}
     </tbody>
   </table>

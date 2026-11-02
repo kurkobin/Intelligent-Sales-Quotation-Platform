@@ -35,6 +35,34 @@ def group_required(*group_names):
         return _wrapped
     return decorator
 
+
+def get_exchange_rate(currency, year=None):
+    """返回 (汇率, 来源)。
+
+    汇率含义：1 单位该币别 = ? RMB。
+    优先读「汇率维护」表（先按当年，没有再取该币别最新一年），
+    表里没有记录时才回退到 settings.EXCHANGE_RATES 的默认值。
+    """
+    from django.utils import timezone
+    from masterdata.models import ExchangeRate
+
+    if currency == "RMB":
+        return Decimal("1"), "本币"
+
+    if year is None:
+        year = timezone.now().year
+
+    rec = ExchangeRate.objects.filter(
+        year=year, base_currency="RMB", currency=currency
+    ).first()
+    if rec is None:
+        rec = ExchangeRate.objects.filter(currency=currency).order_by("-year").first()
+
+    if rec and rec.rate and rec.rate > 0:
+        return rec.rate, f"汇率表（{rec.year} 年）"
+
+    return settings.EXCHANGE_RATES.get(currency, Decimal("1")), "默认值"
+
 class RememberMeLoginView(LoginView):
     template_name = "login.html"
 
@@ -96,6 +124,7 @@ def bom_cost(request, project_id):
             "finish": finish,
             "mold": mold,
             "subtotal": subtotal,
+            "auto_material": part.auto_material_cost,   # ③ 按材料单价自动算的材料费
         })
 
     parts_total = total_material + total_process + total_finish
@@ -105,9 +134,15 @@ def bom_cost(request, project_id):
     # 组装费（专案级）
     assembly_total = sum((item.cost for item in project.assembly_items.all()), Decimal("0"))
 
+    # ② 未税折算：模具费按含税录入，先折算成未税再摊
+    tax_rate = project.tax_rate or Decimal("0")
+    tax_factor = Decimal("1") + tax_rate / Decimal("100")
+    mold_net = total_mold - project.customer_mold_payment
+    mold_net_excl = mold_net / tax_factor if tax_factor else mold_net
+
     # 模摊计提成本 =（模具费汇总 - 客户支付模具款）÷ 预测量
     qty = project.forecast_qty or 1
-    mold_amortize = (total_mold - project.customer_mold_payment) / qty
+    mold_amortize = mold_net_excl / qty
 
     # 不良成本 =（材料成本 + 组装费）× 不良率
     defect_cost = (total_material + assembly_total) * (project.defect_rate / Decimal("100"))
@@ -118,7 +153,9 @@ def bom_cost(request, project_id):
     is_sales = request.user.groups.filter(name="销售人员").exists()
     can_export = has_role(request.user, "成本人员") or (is_sales and project.bom_status == "approved")
     can_approve = has_role(request.user, "成本人员") and project.bom_status != "approved"
-    rate = settings.EXCHANGE_RATES.get(project.currency, Decimal("1"))
+
+    # ① 汇率：优先读「汇率维护」表，没有记录才用默认值
+    rate, rate_source = get_exchange_rate(project.currency)
     grand_total_local = grand_total / rate if rate else grand_total
 
     return render(request, "quotes/bom_cost.html", {
@@ -132,12 +169,17 @@ def bom_cost(request, project_id):
         "packaging_total": packaging_total,
         "assembly_total": assembly_total,
         "mold_amortize": mold_amortize,
+        "mold_net": mold_net,
+        "mold_net_excl": mold_net_excl,
+        "tax_rate": tax_rate,
         "defect_cost": defect_cost,
         "grand_total": grand_total,
         "can_import": has_role(request.user, "成本人员"),
         "can_export": can_export,
         "can_approve": can_approve,
         "grand_total_local": grand_total_local,
+        "rate": rate,
+        "rate_source": rate_source,
         "projects": visible_projects(request.user),
     })
 
