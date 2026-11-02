@@ -26,6 +26,19 @@
     <button class="btn alt" type="submit">取消提交</button>
   </form>
 {% else %}
+  <div class="card" style="max-width:560px;background:#f3f7fb;border-left:4px solid #1F4E79;">
+    <h3 style="margin:0 0 8px;color:#1F4E79;font-size:15px;">自动估价</h3>
+    <p style="margin:0 0 10px;font-size:13px;color:#555;">
+      按零件参数 + 主数据算出：材料费 <b>{{ auto_material|floatformat:2 }}</b>　｜　加工费 <b>{{ auto_process|floatformat:2 }}</b>
+    </p>
+    <form method="post" style="display:inline;">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="auto_fill">
+      <button class="btn" type="submit">一键采用</button>
+    </form>
+    <span style="font-size:12px;color:#888;">（会把上面的「材料费 / 加工费」填入下方表单）</span>
+  </div>
+
   <form method="post" class="card" style="max-width:560px;">
     {% csrf_token %}
     <label>材料费（RMB）</label>

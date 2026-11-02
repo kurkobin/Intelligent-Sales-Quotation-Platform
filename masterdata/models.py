@@ -84,6 +84,7 @@ class SheetMaterial(models.Model):
     brand = models.CharField("品牌", max_length=50)
     material = models.CharField("材质", max_length=50)
     density = models.DecimalField("密度（g/cm³）", max_digits=8, decimal_places=4, default=7.85)
+    unit_price = models.DecimalField("单价（元/kg）", max_digits=12, decimal_places=4, default=0)
 
     class Meta:
         verbose_name = "钣金材料"

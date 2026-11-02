@@ -1,5 +1,6 @@
 from django.db import models
 from django.conf import settings
+from django.utils import timezone
 
 
 class Project(models.Model):
@@ -38,6 +39,14 @@ class Project(models.Model):
         ("pending", "待审核"),
         ("approved", "已审核"),
     ]
+    STATUS_CHOICES = [
+        ("进行中", "进行中"),
+        ("已完成", "已完成"),
+    ]
+
+    code = models.CharField("专案代码", max_length=30, blank=True, db_index=True,
+                            help_text="留空会自动生成，如 P2026-001")
+    status = models.CharField("专案状态", max_length=10, choices=STATUS_CHOICES, default="进行中")
 
     name = models.CharField("专案名称", max_length=100)
     customer = models.CharField("客户名称", max_length=100)
@@ -75,6 +84,8 @@ class Project(models.Model):
     )
     customer_mold_payment = models.DecimalField("客户支付模具款（元）", max_digits=14, decimal_places=2, default=0)
     defect_rate = models.DecimalField("不良率（%）", max_digits=6, decimal_places=2, default=0)
+    tax_rate = models.DecimalField("增值税率（%）", max_digits=5, decimal_places=2, default=13,
+                                   help_text="模具费默认按含税录入，BOM COST 里会折算成未税")
     created_at = models.DateTimeField("创建时间", auto_now_add=True)
 
     class Meta:
@@ -108,6 +119,9 @@ class Project(models.Model):
         )
 
     def save(self, *args, **kwargs):
+        # 新建时自动生成专案代码 P2026-001
+        if not self.code:
+            self.code = self._generate_code()
         # 编辑时判断「报价阶段」是否变化，变了先存快照、再主版本 +1、子版本归零
         if self.pk:
             old = Project.objects.filter(pk=self.pk).first()
@@ -116,6 +130,18 @@ class Project(models.Model):
                 self.major_version += 1
                 self.minor_version = 0
         super().save(*args, **kwargs)
+
+    def _generate_code(self):
+        """生成 P{年份}-{三位流水号}"""
+        prefix = f"P{timezone.now().year}-"
+        exist = Project.objects.filter(code__startswith=prefix).values_list("code", flat=True)
+        nums = []
+        for c in exist:
+            try:
+                nums.append(int(c.split("-")[1]))
+            except (IndexError, ValueError):
+                continue
+        return f"{prefix}{(max(nums) + 1) if nums else 1:03d}"
 
 
 class VersionHistory(models.Model):

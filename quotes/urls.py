@@ -24,4 +24,7 @@ urlpatterns = [
     path("project/<int:project_id>/upload-quotes/", views.upload_quote_sheet, name="upload_quote_sheet"),
     path("project/<int:project_id>/versions/", views.version_history, name="version_history"),
     path("project/<int:project_id>/upload-3d/", views.upload_3d, name="upload_3d"),
+    path("project/<int:project_id>/toggle-status/", views.toggle_project_status, name="toggle_project_status"),
+    path("project/<int:project_id>/export-parts/", views.export_parts, name="export_parts"),
+    path("attachments/", views.attachment_library_all, name="attachment_library_all"),
 ]

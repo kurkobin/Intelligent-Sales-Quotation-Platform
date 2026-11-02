@@ -35,6 +35,34 @@ def group_required(*group_names):
         return _wrapped
     return decorator
 
+
+def get_exchange_rate(currency, year=None):
+    """返回 (汇率, 来源)。
+
+    汇率含义：1 单位该币别 = ? RMB。
+    优先读「汇率维护」表（先按当年，没有再取该币别最新一年），
+    表里没有记录时才回退到 settings.EXCHANGE_RATES 的默认值。
+    """
+    from django.utils import timezone
+    from masterdata.models import ExchangeRate
+
+    if currency == "RMB":
+        return Decimal("1"), "本币"
+
+    if year is None:
+        year = timezone.now().year
+
+    rec = ExchangeRate.objects.filter(
+        year=year, base_currency="RMB", currency=currency
+    ).first()
+    if rec is None:
+        rec = ExchangeRate.objects.filter(currency=currency).order_by("-year").first()
+
+    if rec and rec.rate and rec.rate > 0:
+        return rec.rate, f"汇率表（{rec.year} 年）"
+
+    return settings.EXCHANGE_RATES.get(currency, Decimal("1")), "默认值"
+
 class RememberMeLoginView(LoginView):
     template_name = "login.html"
 
@@ -69,19 +97,17 @@ def home(request):
     return render(request, "quotes/home.html", {"projects": projects})
 
 
-@login_required
-def bom_cost(request, project_id):
-    project = get_visible_project(request, project_id)
-
+def compute_project_cost(project):
+    """计算专案的单套 BOM COST（渲染页面与导出 Excel 共用同一套逻辑）"""
     rows = []
-    total_material = total_process = total_finish = total_mold = 0
+    total_material = total_process = total_finish = total_mold = Decimal("0")
 
     for part in project.parts.all():
         quote = getattr(part, "quote", None)
-        material = quote.material if quote else 0
-        process = quote.process if quote else 0
-        finish = quote.finish if quote else 0
-        mold = quote.mold_fee if quote else 0
+        material = quote.material if quote else Decimal("0")
+        process = quote.process if quote else Decimal("0")
+        finish = quote.finish if quote else Decimal("0")
+        mold = quote.mold_fee if quote else Decimal("0")
         subtotal = material + process + finish
 
         total_material += material
@@ -96,33 +122,27 @@ def bom_cost(request, project_id):
             "finish": finish,
             "mold": mold,
             "subtotal": subtotal,
+            "auto_material": part.auto_material_cost,
+            "auto_process": part.auto_process_cost,
         })
 
     parts_total = total_material + total_process + total_finish
 
-    # 包材费（专案级）
     packaging_total = sum((item.amount for item in project.packaging_items.all()), Decimal("0"))
-    # 组装费（专案级）
     assembly_total = sum((item.cost for item in project.assembly_items.all()), Decimal("0"))
 
-    # 模摊计提成本 =（模具费汇总 - 客户支付模具款）÷ 预测量
+    # 模具费按含税录入，先折算成未税再摊
+    tax_rate = project.tax_rate or Decimal("0")
+    tax_factor = Decimal("1") + tax_rate / Decimal("100")
+    mold_net = total_mold - project.customer_mold_payment
+    mold_net_excl = mold_net / tax_factor if tax_factor else mold_net
+
     qty = project.forecast_qty or 1
-    mold_amortize = (total_mold - project.customer_mold_payment) / qty
-
-    # 不良成本 =（材料成本 + 组装费）× 不良率
+    mold_amortize = mold_net_excl / qty
     defect_cost = (total_material + assembly_total) * (project.defect_rate / Decimal("100"))
-
-    # 单套成本合计
     grand_total = parts_total + mold_amortize + defect_cost + packaging_total + assembly_total
 
-    is_sales = request.user.groups.filter(name="销售人员").exists()
-    can_export = has_role(request.user, "成本人员") or (is_sales and project.bom_status == "approved")
-    can_approve = has_role(request.user, "成本人员") and project.bom_status != "approved"
-    rate = settings.EXCHANGE_RATES.get(project.currency, Decimal("1"))
-    grand_total_local = grand_total / rate if rate else grand_total
-
-    return render(request, "quotes/bom_cost.html", {
-        "project": project,
+    return {
         "rows": rows,
         "total_material": total_material,
         "total_process": total_process,
@@ -131,15 +151,41 @@ def bom_cost(request, project_id):
         "parts_total": parts_total,
         "packaging_total": packaging_total,
         "assembly_total": assembly_total,
+        "tax_rate": tax_rate,
+        "mold_net": mold_net,
+        "mold_net_excl": mold_net_excl,
         "mold_amortize": mold_amortize,
         "defect_cost": defect_cost,
         "grand_total": grand_total,
+    }
+
+
+@login_required
+def bom_cost(request, project_id):
+    project = get_visible_project(request, project_id)
+    cost = compute_project_cost(project)
+
+    is_sales = request.user.groups.filter(name="销售人员").exists()
+    can_export = has_role(request.user, "成本人员") or (is_sales and project.bom_status == "approved")
+    can_approve = has_role(request.user, "成本人员") and project.bom_status != "approved"
+
+    # ① 汇率：优先读「汇率维护」表，没有记录才用默认值
+    rate, rate_source = get_exchange_rate(project.currency)
+    grand_total = cost["grand_total"]
+    grand_total_local = grand_total / rate if rate else grand_total
+
+    context = {
+        "project": project,
         "can_import": has_role(request.user, "成本人员"),
         "can_export": can_export,
         "can_approve": can_approve,
         "grand_total_local": grand_total_local,
+        "rate": rate,
+        "rate_source": rate_source,
         "projects": visible_projects(request.user),
-    })
+    }
+    context.update(cost)
+    return render(request, "quotes/bom_cost.html", context)
 
 @login_required
 @group_required("成本人员")
@@ -157,13 +203,16 @@ def export_bom_cost(request, project_id):
     """导出商务版报价单（Excel）"""
     project = get_visible_project(request, project_id)
 
+    mode = request.GET.get("mode", "detail")
+    cost = compute_project_cost(project)
+
     wb = Workbook()
     ws = wb.active
-    ws.title = "报价单"
+    ws.title = "汇总" if mode == "summary" else "明细"
 
     # 标题
     ws.merge_cells("A1:F1")
-    ws["A1"] = "报 价 单"
+    ws["A1"] = "报 价 单（汇总）" if mode == "summary" else "报 价 单（明细）"
     ws["A1"].font = Font(size=22, bold=True)
     ws["A1"].alignment = Alignment(horizontal="center", vertical="center")
     ws.row_dimensions[1].height = 38
@@ -174,37 +223,64 @@ def export_bom_cost(request, project_id):
     ws["A4"] = f"客户名称：{project.customer}"
     ws["D4"] = f"币别：{project.currency}"
     ws["A5"] = f"专案名称：{project.name}"
-    ws["D5"] = "付款条件：月结 30 天"
+    ws["D5"] = f"专案代码：{project.code or '—'}"
     for cell in ("A3", "D3", "A4", "D4", "A5", "D5"):
         ws[cell].font = Font(size=11)
 
-    # 空行 + 表头
     ws.append([])
-    ws.append(["零件", "分类", "材料费", "加工费", "表面处理费", "小计"])
-    for cell in ws[7]:
-        cell.font = Font(bold=True, color="FFFFFF")
-        cell.fill = PatternFill("solid", fgColor="1F4E79")
-        cell.alignment = Alignment(horizontal="center")
 
-    # 明细
-    total_material = total_process = total_finish = 0
-    for part in project.parts.all():
-        quote = getattr(part, "quote", None)
-        material = float(quote.material) if quote else 0.0
-        process = float(quote.process) if quote else 0.0
-        finish = float(quote.finish) if quote else 0.0
-        subtotal = material + process + finish
-        total_material += material
-        total_process += process
-        total_finish += finish
-        ws.append([part.name, part.category, material, process, finish, subtotal])
+    if mode == "summary":
+        # ---------- 汇总版：只列各成本项 ----------
+        ws.append(["成本项", "金额（RMB 未税）"])
+        for cell in ws[ws.max_row]:
+            cell.font = Font(bold=True, color="FFFFFF")
+            cell.fill = PatternFill("solid", fgColor="1F4E79")
+            cell.alignment = Alignment(horizontal="center")
 
-    # 合计
-    grand_total = total_material + total_process + total_finish
-    ws.append(["合计", "", total_material, total_process, total_finish, grand_total])
-    for cell in ws[ws.max_row]:
-        cell.font = Font(bold=True)
-        cell.fill = PatternFill("solid", fgColor="EEF3F8")
+        summary_rows = [
+            ("零件成本合计（材料＋加工＋表面处理）", cost["parts_total"]),
+            ("模具费净额（含税，已扣客户支付）", cost["mold_net"]),
+            (f"模具费净额（未税，÷(1+{cost['tax_rate']}%)）", cost["mold_net_excl"]),
+            ("模摊计提成本", cost["mold_amortize"]),
+            ("不良成本", cost["defect_cost"]),
+            ("包材费", cost["packaging_total"]),
+            ("组装费", cost["assembly_total"]),
+            ("单套成本合计", cost["grand_total"]),
+        ]
+        for label, value in summary_rows:
+            ws.append([label, float(value)])
+
+        for cell in ws[ws.max_row]:
+            cell.font = Font(bold=True)
+            cell.fill = PatternFill("solid", fgColor="EEF3F8")
+    else:
+        # ---------- 明细版：逐零件 ----------
+        ws.append(["零件", "分类", "材料费", "加工费", "表面处理费", "小计"])
+        for cell in ws[ws.max_row]:
+            cell.font = Font(bold=True, color="FFFFFF")
+            cell.fill = PatternFill("solid", fgColor="1F4E79")
+            cell.alignment = Alignment(horizontal="center")
+
+        for row in cost["rows"]:
+            ws.append([
+                row["part"].name,
+                row["part"].category,
+                float(row["material"]),
+                float(row["process"]),
+                float(row["finish"]),
+                float(row["subtotal"]),
+            ])
+
+        ws.append([
+            "合计", "",
+            float(cost["total_material"]),
+            float(cost["total_process"]),
+            float(cost["total_finish"]),
+            float(cost["parts_total"]),
+        ])
+        for cell in ws[ws.max_row]:
+            cell.font = Font(bold=True)
+            cell.fill = PatternFill("solid", fgColor="EEF3F8")
 
     # 备注与签核
     ws.append([])
@@ -212,15 +288,80 @@ def export_bom_cost(request, project_id):
     ws.append([])
     ws.append(["制表：", "", "审核：", "", "客户确认："])
 
-    # 列宽
-    for col, w in {"A": 26, "B": 14, "C": 12, "D": 12, "E": 14, "F": 12}.items():
+    for col, w in {"A": 40, "B": 16, "C": 14, "D": 14, "E": 14, "F": 14}.items():
         ws.column_dimensions[col].width = w
 
-    # 下载
     response = HttpResponse(
         content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
-    response["Content-Disposition"] = f'attachment; filename="Quotation_QT{project.id:04d}.xlsx"'
+    suffix = "Summary" if mode == "summary" else "Detail"
+    response["Content-Disposition"] = (
+        f'attachment; filename="Quotation_{suffix}_QT{project.id:04d}.xlsx"'
+    )
+    wb.save(response)
+    return response
+
+
+@login_required
+@group_required("成本人员", "销售人员")
+def export_parts(request, project_id):
+    """导出零件清单 Excel（含估价参数与自动估价结果）"""
+    project = get_visible_project(request, project_id)
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "零件清单"
+
+    headers = [
+        "序号", "零件名称", "分类", "数量", "材质",
+        "尺寸X(mm)", "尺寸Y(mm)", "尺寸Z(mm)", "体积(mm³)",
+        "密度(g/cm³)", "单价(元/kg)", "重量(kg)",
+        "自动材料费", "自动加工费",
+        "材料费(报价)", "加工费(报价)", "表面处理费(报价)", "模具费(报价)", "报价状态",
+    ]
+    ws.append(headers)
+    for cell in ws[1]:
+        cell.font = Font(bold=True, color="FFFFFF")
+        cell.fill = PatternFill("solid", fgColor="1F4E79")
+        cell.alignment = Alignment(horizontal="center")
+
+    for idx, part in enumerate(project.parts.all(), start=1):
+        quote = getattr(part, "quote", None)
+        sm = part.sheet_material
+        ws.append([
+            idx,
+            part.name,
+            part.category,
+            part.qty,
+            part.material,
+            float(part.size_x), float(part.size_y), float(part.size_z), float(part.volume),
+            float(sm.density) if sm else "",
+            float(sm.unit_price) if sm else "",
+            float(part.weight_kg),
+            float(part.auto_material_cost),
+            float(part.auto_process_cost),
+            float(quote.material) if quote else "",
+            float(quote.process) if quote else "",
+            float(quote.finish) if quote else "",
+            float(quote.mold_fee) if quote else "",
+            quote.get_status_display() if quote else "未报价",
+        ])
+
+    for col, w in {
+        "A": 6, "B": 22, "C": 14, "D": 8, "E": 14,
+        "F": 12, "G": 12, "H": 12, "I": 14,
+        "J": 12, "K": 12, "L": 10,
+        "M": 12, "N": 12,
+        "O": 12, "P": 12, "Q": 14, "R": 12, "S": 10,
+    }.items():
+        ws.column_dimensions[col].width = w
+
+    response = HttpResponse(
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    response["Content-Disposition"] = (
+        f'attachment; filename="Parts_{project.code or project.id}.xlsx"'
+    )
     wb.save(response)
     return response
 
@@ -273,21 +414,48 @@ def dashboard(request):
     projects = visible_projects(request.user)
     rows = []
     for project in projects:
-        part_count = project.parts.count()
+        parts = project.parts.all()
+        part_count = parts.count()
         submitted_count = Quote.objects.filter(part__project=project, status="submitted").count()
+        quoted_count = Quote.objects.filter(part__project=project).count()
+
+        # 阻塞项：还没指派任何人的零件 + 还没填报价的零件
+        unassigned = parts.filter(
+            molder__isnull=True, evaluator__isnull=True, purchaser__isnull=True,
+            mold_purchaser__isnull=True, outsource_buyer__isnull=True, cnc_engineer__isnull=True,
+        ).count()
+        no_quote = max(part_count - quoted_count, 0)
+
         totals = Quote.objects.filter(part__project=project).aggregate(
             material=Sum("material"),
             process=Sum("process"),
             finish=Sum("finish"),
         )
         grand_total = (totals["material"] or 0) + (totals["process"] or 0) + (totals["finish"] or 0)
+
+        progress = int(round(submitted_count / part_count * 100)) if part_count else 0
         rows.append({
             "project": project,
             "part_count": part_count,
             "submitted_count": submitted_count,
             "grand_total": grand_total,
+            "progress": progress,
+            "unassigned": unassigned,
+            "no_quote": no_quote,
+            "blocked": unassigned + no_quote,
         })
     return render(request, "quotes/dashboard.html", {"rows": rows})
+
+
+@login_required
+@group_required("成本人员")
+def toggle_project_status(request, project_id):
+    """把专案在「进行中 / 已完成」之间切换"""
+    project = get_object_or_404(Project, pk=project_id)
+    if request.method == "POST":
+        project.status = "已完成" if project.status != "已完成" else "进行中"
+        project.save(update_fields=["status"])
+    return redirect(request.META.get("HTTP_REFERER") or "home")
 
 @login_required
 def my_tasks(request):
@@ -326,6 +494,15 @@ def edit_quote(request, part_id):
                 quote.save()
             return redirect("edit_quote", part_id=part.id)
 
+        # ---- 一键采用自动估价（材料费 + 加工费）----
+        if action == "auto_fill":
+            if quote.status != "submitted":
+                material, process = part.auto_quote_values
+                quote.material = material
+                quote.process = process
+                quote.save()
+            return redirect("edit_quote", part_id=part.id)
+
         if quote.status != "submitted":
             quote.material = _money(request.POST.get("material"))
             quote.process = _money(request.POST.get("process"))
@@ -342,7 +519,13 @@ def edit_quote(request, part_id):
 
         return redirect("edit_quote", part_id=part.id)
 
-    return render(request, "quotes/edit_quote.html", {"part": part, "quote": quote})
+    auto_material, auto_process = part.auto_quote_values
+    return render(request, "quotes/edit_quote.html", {
+        "part": part,
+        "quote": quote,
+        "auto_material": auto_material,
+        "auto_process": auto_process,
+    })
 
 
 @login_required
@@ -504,6 +687,76 @@ def attachment_library(request, project_id):
 
 
 @login_required
+def attachment_library_all(request):
+    """全部报价附件（按专案分组展示）"""
+    projects = visible_projects(request.user).prefetch_related("attachments")
+    groups = []
+    total = 0
+    for project in projects:
+        items = list(project.attachments.all())
+        if items:
+            groups.append({"project": project, "items": items})
+            total += len(items)
+    return render(request, "quotes/attachments_all.html", {"groups": groups, "total": total})
+
+
+def notify_assignment(project, parts, actor):
+    """任务分派后发通知邮件。
+
+    未配置 EMAIL_HOST_PASSWORD 时走 console backend，邮件内容打印在服务器窗口；
+    配置了 QQ 邮箱授权码则真实发送。
+    """
+    from django.core.mail import send_mail
+
+    roles = [
+        ("模具工程师", "molder"),
+        ("模具采购", "mold_purchaser"),
+        ("评估人员", "evaluator"),
+        ("委外采购", "outsource_buyer"),
+        ("数控工程师", "cnc_engineer"),
+    ]
+
+    recipients = set()
+    lines = [
+        f"专案：{project.name}（{project.code or project.id}）",
+        f"客户：{project.customer}",
+        f"分派人：{actor.get_username()}",
+        "",
+        "分派明细：",
+    ]
+
+    for part in parts:
+        who = []
+        for label, field in roles:
+            user = getattr(part, field, None)
+            if user:
+                who.append(f"{label}={user.get_username()}")
+                if user.email:
+                    recipients.add(user.email)
+        lines.append(f"  · {part.name}（{part.category}）：{'，'.join(who) or '未指派'}")
+
+    if project.packaging_engineer:
+        recipients.add(project.packaging_engineer.email)
+    if project.ie_engineer:
+        recipients.add(project.ie_engineer.email)
+
+    recipients.discard("")
+    if getattr(settings, "TASK_NOTIFY_EMAIL", ""):
+        recipients.add(settings.TASK_NOTIFY_EMAIL)
+
+    if not recipients:
+        return
+
+    send_mail(
+        subject=f"[智能报价平台] 任务分派通知 - {project.name}",
+        message="\n".join(lines),
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        recipient_list=sorted(recipients),
+        fail_silently=True,
+    )
+
+
+@login_required
 @group_required("成本人员")
 def assign_tasks(request, project_id):
     """任务分派页（零件级 5 个角色 + 专案级包材/IE）"""
@@ -521,6 +774,7 @@ def assign_tasks(request, project_id):
         project.packaging_engineer_id = request.POST.get("packaging_engineer") or None
         project.ie_engineer_id = request.POST.get("ie_engineer") or None
         project.save()
+        notify_assignment(project, project.parts.all(), request.user)
         return redirect("assign_tasks", project_id=project.id)
 
     return render(request, "quotes/assign.html", {

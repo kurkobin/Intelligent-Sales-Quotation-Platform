@@ -6,19 +6,37 @@
 <h1>专案列表</h1>
 <table>
   <thead>
-    <tr><th>专案名称</th><th>客户</th><th>版本</th><th>零件数</th><th>操作</th></tr>
+    <tr><th>专案代码</th><th>专案名称</th><th>客户</th><th>版本</th><th>零件数</th><th>状态</th><th>操作</th></tr>
   </thead>
   <tbody>
     {% for project in projects %}
     <tr>
+      <td><span style="font-family:Consolas,monospace;color:#1F4E79;">{{ project.code|default:"—" }}</span></td>
       <td>{{ project.name }}</td>
       <td>{{ project.customer }}</td>
       <td>{{ project.version }}</td>
       <td>{{ project.parts.count }}</td>
-      <td><a class="btn" href="{% url 'bom_cost' project.id %}">查看 BOM COST</a></td>
+      <td>
+        {% if project.status == "已完成" %}
+          <span style="color:#080;font-weight:bold;">已完成</span>
+        {% else %}
+          <span style="color:#c80;">进行中</span>
+        {% endif %}
+      </td>
+      <td>
+        <a class="btn" href="{% url 'bom_cost' project.id %}">查看 BOM COST</a>
+        {% if user.is_staff or "成本人员" in user_groups %}
+        <form method="post" action="{% url 'toggle_project_status' project.id %}" style="display:inline;">
+          {% csrf_token %}
+          <button class="btn alt" type="submit">
+            {% if project.status == "已完成" %}标记进行中{% else %}标记完成{% endif %}
+          </button>
+        </form>
+        {% endif %}
+      </td>
     </tr>
     {% empty %}
-    <tr><td colspan="5">还没有专案，请先去后台添加</td></tr>
+    <tr><td colspan="7">还没有专案，请先去后台添加</td></tr>
     {% endfor %}
   </tbody>
 </table>

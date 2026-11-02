@@ -143,11 +143,35 @@ MEDIA_ROOT = BASE_DIR / "media"
 # Email
 # https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration
 
-MAILERS = {
-    'default': {
-        'BACKEND': 'django.core.mail.backends.console.EmailBackend',
-    },
-}
+# ---------------- 邮件通知 ----------------
+# 在 .env 里填了 EMAIL_HOST_PASSWORD（QQ 邮箱的「授权码」）→ 真的发信
+# 没填 → 邮件内容直接打印到服务器控制台（方便本地测试）
+_EMAIL_USER = os.environ.get("EMAIL_HOST_USER", "735641057@qq.com")
+_EMAIL_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
+
+if _EMAIL_PASSWORD:
+    MAILERS = {
+        "default": {
+            "BACKEND": "django.core.mail.backends.smtp.EmailBackend",
+            "OPTIONS": {
+                "host": os.environ.get("EMAIL_HOST", "smtp.qq.com"),
+                "port": int(os.environ.get("EMAIL_PORT", "465")),
+                "username": _EMAIL_USER,
+                "password": _EMAIL_PASSWORD,
+                "use_ssl": True,
+            },
+        },
+    }
+else:
+    MAILERS = {
+        "default": {
+            "BACKEND": "django.core.mail.backends.console.EmailBackend",
+        },
+    }
+
+DEFAULT_FROM_EMAIL = f"智能销售报价平台 <{_EMAIL_USER}>"
+# 任务分派的测试收件人
+TASK_NOTIFY_EMAIL = os.environ.get("TASK_NOTIFY_EMAIL", "735641057@qq.com")
 
 LOGIN_URL = "/accounts/login/"
 LOGIN_REDIRECT_URL = "/"
