@@ -68,4 +68,6 @@ class Command(BaseCommand):
 
     def _print_test(self, info):
         state = self.style.SUCCESS("连接成功") if info["ok"] else self.style.ERROR("连接失败")
-        self.stdout.write(f"[连接] {state}　{info['message']}　{info['elapsed_ms']} ms")
+        # 消息和状态同为「连接成功/失败」时只显示一次
+        message = "" if info["message"] in ("连接成功", "连接失败") else f"　{info['message']}"
+        self.stdout.write(f"[连接] {state}{message}　{info['elapsed_ms']} ms")

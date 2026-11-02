@@ -7,6 +7,7 @@ from openpyxl.styles import Font, PatternFill,Alignment
 from datetime import date
 from parts.models import Part
 from projects.models import Project, VersionHistory
+from masterdata.models import ItemMaster
 from .models import AssemblyItem, Attachment, PackagingItem, Quote, SupplierQuote
 from functools import wraps
 from django.core.exceptions import PermissionDenied
@@ -36,9 +37,17 @@ def group_required(*group_names):
     return decorator
 
 
+# 料号（ERP 里的物料分组）→ 零件分类；对不上的（标准件/包材等）按「外购件」
+ITEM_CATEGORY_MAP = {
+    "冲压件": "冲压钣金件",
+    "钣金件": "冲压钣金件",
+    "NCT钣金件": "NCT钣金件",
+    "注塑件": "注塑件",
+}
+
+
 def get_exchange_rate(currency, year=None):
     """返回 (汇率, 来源)。
-
     汇率含义：1 单位该币别 = ? RMB。
     优先读「汇率维护」表（先按当年，没有再取该币别最新一年），
     表里没有记录时才回退到 settings.EXCHANGE_RATES 的默认值。
@@ -102,7 +111,7 @@ def compute_project_cost(project):
     rows = []
     total_material = total_process = total_finish = total_mold = Decimal("0")
 
-    for part in project.parts.all():
+    for part in project.parts.select_related("item_master"):
         quote = getattr(part, "quote", None)
         material = quote.material if quote else Decimal("0")
         process = quote.process if quote else Decimal("0")
@@ -313,7 +322,7 @@ def export_parts(request, project_id):
     ws.title = "零件清单"
 
     headers = [
-        "序号", "零件名称", "分类", "数量", "材质",
+        "序号", "料号", "零件名称", "分类", "数量", "材质",
         "尺寸X(mm)", "尺寸Y(mm)", "尺寸Z(mm)", "体积(mm³)",
         "密度(g/cm³)", "单价(元/kg)", "重量(kg)",
         "自动材料费", "自动加工费",
@@ -330,6 +339,7 @@ def export_parts(request, project_id):
         sm = part.sheet_material
         ws.append([
             idx,
+            part.item_master.number if part.item_master else "",
             part.name,
             part.category,
             part.qty,
@@ -347,14 +357,13 @@ def export_parts(request, project_id):
             quote.get_status_display() if quote else "未报价",
         ])
 
-    for col, w in {
-        "A": 6, "B": 22, "C": 14, "D": 8, "E": 14,
-        "F": 12, "G": 12, "H": 12, "I": 14,
-        "J": 12, "K": 12, "L": 10,
-        "M": 12, "N": 12,
-        "O": 12, "P": 12, "Q": 14, "R": 12, "S": 10,
-    }.items():
-        ws.column_dimensions[col].width = w
+    widths = [6, 12, 22, 14, 8, 14,
+              12, 12, 12, 14,
+              12, 12, 10,
+              12, 12,
+              12, 12, 14, 12, 10]
+    for col_idx, width in enumerate(widths, start=1):
+        ws.column_dimensions[chr(64 + col_idx)].width = width
 
     response = HttpResponse(
         content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -381,31 +390,71 @@ def import_parts(request, project_id):
         ws = wb.active
 
         valid_categories = ["冲压钣金件", "NCT钣金件", "注塑件", "外购件"]
-        count = 0
 
+        # 表头识别：新模板带「料号」列；老文件没有表头就按 名称/数量/分类 的位置解析
+        header_row = next(ws.iter_rows(min_row=1, max_row=1, values_only=True), ())
+        header = [str(value).strip() if value is not None else "" for value in header_row]
+
+        def column(name, fallback=-1):
+            return header.index(name) if name in header else fallback
+
+        name_col = column("零件名称", 0)
+        qty_col = column("数量", 1)
+        category_col = column("分类", 2)
+        item_col = column("料号")
+        material_col = column("材质")
+
+        item_map = {}
+        if item_col >= 0:
+            item_map = {item.number: item for item in ItemMaster.objects.all()}
+
+        def cell(row, index):
+            if index < 0 or len(row) <= index:
+                return None
+            return row[index]
+
+        count = linked = 0
         for row in ws.iter_rows(min_row=2, values_only=True):
-            name = row[0] if len(row) > 0 else None
+            name = cell(row, name_col)
             if not name:
                 continue
-            qty_raw = row[1] if len(row) > 1 else None
+
+            qty_raw = cell(row, qty_col)
             qty = int(float(qty_raw)) if qty_raw not in (None, "") else 1
-            category = str(row[2]).strip() if len(row) > 2 and row[2] else "外购件"
+
+            item = None
+            raw_number = cell(row, item_col)
+            if raw_number not in (None, ""):
+                item = item_map.get(str(raw_number).strip())
+
+            category = str(cell(row, category_col) or "").strip()
+            if not category and item:
+                category = ITEM_CATEGORY_MAP.get(item.category, "外购件")
             if category not in valid_categories:
                 category = "外购件"
+
+            material = cell(row, material_col)
+            material = str(material).strip() if material else (item.material if item else "")
 
             Part.objects.create(
                 project=project,
                 name=str(name).strip(),
                 qty=qty,
                 category=category,
+                material=material[:100],
+                item_master=item,
             )
             count += 1
+            linked += 1 if item else 0
 
         if count:
             project.minor_version += 1
             project.save()
 
-        return render(request, "quotes/import.html", {"project": project, "success": f"成功导入 {count} 个零件"})
+        message = f"成功导入 {count} 个零件"
+        if item_col >= 0:
+            message += f"（其中 {linked} 个匹配到料号）"
+        return render(request, "quotes/import.html", {"project": project, "success": message})
 
     return render(request, "quotes/import.html", {"project": project})
 

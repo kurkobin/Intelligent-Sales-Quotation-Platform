@@ -87,6 +87,7 @@ uv run python seed_demo_data.py
 
 ### 零件与 3D
 - 零件清单、Excel 导入 / **导出（含估价参数与自动估价结果）**
+- **料号接入**：导出带「料号」列；导入带「料号」列时自动挂接 `ItemMaster`（顺便带出材质、按 ERP 分组推断零件分类）
 - **上传 3D 图档（.stp/.step/.igs/.iges）→ OpenCascade 自动解析出零件的包围盒尺寸与体积，生成零件清单**
 - **自动材料费**：`体积 × 密度 ÷ 10⁶ = 重量(kg)`、`重量 × 单价 = 材料费`；注塑件按 `单重 + 料头`
 - **自动加工费**：
@@ -165,6 +166,15 @@ uv run python manage.py erp_sync --what=all
 - 页面：左侧「系统维护 → **ERP 主数据同步**」（`/erp/sync/`）—— 测连接、点按钮同步、看最近调用日志
 - 日志：`/admin/erp/erplog/` —— 每次调用的报文摘要、错误、耗时
 - 料号：`/admin/masterdata/itemmaster/` —— ERP 同步进来的料号，零件编辑时可挂料号
+- 零件清单**导出带「料号」列**；**导入时按「料号」列自动挂接**（没带料号的老文件仍按位置解析，向下兼容）；BOM COST 页也显示料号
+
+### 自动化测试
+
+```cmd
+uv run python manage.py test erp      # 23 项：报文映射 / 幂等 upsert / 失败短路 / 页面权限 / 客户端脱敏
+```
+
+不联网、不依赖假 ERP 进程（用 `ERP_MODE=offline` 与内置假客户端）。
 
 ### 设计要点
 

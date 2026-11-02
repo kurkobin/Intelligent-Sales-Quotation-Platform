@@ -49,11 +49,12 @@
 
 <table>
   <thead>
-    <tr><th>零件</th><th>分类</th><th>材料费</th><th title="按体积/单重×密度×单价自动算，仅供参考">自动材料费</th><th>加工费</th><th title="冲压：工缴×工程数×人力÷时产；注塑：成型时间×工缴÷穴数">自动加工费</th><th>表面处理费</th><th>模具费</th><th>小计</th></tr>
+    <tr><th>料号</th><th>零件</th><th>分类</th><th>材料费</th><th title="按体积/单重×密度×单价自动算，仅供参考">自动材料费</th><th>加工费</th><th title="冲压：工缴×工程数×人力÷时产；注塑：成型时间×工缴÷穴数">自动加工费</th><th>表面处理费</th><th>模具费</th><th>小计</th></tr>
   </thead>
   <tbody>
     {% for row in rows %}
     <tr>
+      <td>{{ row.part.item_master.number|default:"—" }}</td>
       <td>{{ row.part.name }}</td>
       <td>{{ row.part.category }}</td>
       <td>{{ row.material }}</td>
@@ -65,12 +66,12 @@
       <td>{{ row.subtotal }}</td>
     </tr>
     {% empty %}
-    <tr><td colspan="9">该专案还没有零件</td></tr>
+    <tr><td colspan="10">该专案还没有零件</td></tr>
     {% endfor %}
   </tbody>
   <tfoot>
     <tr>
-      <td colspan="2">零件成本合计</td>
+      <td colspan="3">零件成本合计</td>
       <td>{{ total_material }}</td>
       <td></td>
       <td>{{ total_process }}</td>

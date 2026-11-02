@@ -416,6 +416,8 @@ ERP_MAX_ATTEMPTS=3       # 单次调用最多尝试几次（=1 不重试）
 5. 定时同步（cron / Celery）
 6. 金蝶真实联调
 
+> 二期的前置条件、分批拆解、验收标准与工作量见 **[docs/erp-phase2-plan.md](erp-phase2-plan.md)**。
+
 ---
 
 ## 14. 给新会话的开场白
@@ -510,3 +512,12 @@ E:\DeepSeekHarness\prodiction\
 3. 删除 `模拟ERP金蝶系统` 目录（平台不依赖它），`ERP_MOCK_DIR` 相关配置可留可删。
 
 已为二期留好的口子：`erp/adapters/base.py` 的契约、`ErpLog.action` 里预留的 `save`（回写）、`services.sync_one` 可按实体扩展。
+
+### 15.6 后续补强（2026-11-03）
+
+| 项 | 内容 |
+|---|---|
+| 料号接入业务页面 | 零件清单导出加「料号」列；导入时按「料号」列自动挂接 `ItemMaster`（并带出材质、按 ERP 分组推断零件分类，老文件无表头仍按位置解析）；BOM COST 页显示料号 |
+| 自动化测试 | 新增 `erp/tests.py`，23 项：金蝶报文映射（即期汇率/最新生效日/禁用状态）、幂等 upsert、首次对接认领、失败短路、后台按钮权限、日志脱敏；`manage.py test` 全绿 |
+| 测试抓到的 bug | `number_of()` 对金蝶 `[内码, 编码, 名称]` 数组取成了内码，导致离线同步把币别写成「人民币」；已改为取第 2 段并加回归测试 |
+| 显示口径 | 统一按金蝶方向「1 外币 = X RMB」，`settings.EXCHANGE_RATES` 注释、`ExchangeRate` 字段名、BOM COST 页文案一致 |

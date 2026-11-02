@@ -75,10 +75,11 @@ def number_of(value):
                 return str(candidate).strip()
         return ""
     if isinstance(value, (list, tuple)):
-        for item in value:  # 金蝶 [Id, Number, Name] 习惯：编码在前
-            text = number_of(item)
-            if text:
-                return text
+        # 金蝶基础资料数组一般是 [内码, 编码, 名称]：编码在第 2 位
+        if len(value) >= 2:
+            return number_of(value[1]) or number_of(value[0])
+        if value:
+            return number_of(value[0])
         return ""
     return text_of(value)
 

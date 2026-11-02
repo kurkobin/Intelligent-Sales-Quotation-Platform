@@ -178,7 +178,8 @@ LOGIN_URL = "/accounts/login/"
 LOGIN_REDIRECT_URL = "/"
 LOGOUT_REDIRECT_URL = "/accounts/login/"
 
-# 演示用汇率：1 单位本币 折合多少 RMB（正式项目应做成「汇率维护」主数据表）
+# 演示用汇率兜底：1 单位该币别 = ? RMB（与金蝶方向一致，USD=7.2 即 1 USD = 7.2 RMB）
+# 正式数据以「汇率维护」表为准（可由 ERP 同步进来），这里只在表里查不到时兜底
 EXCHANGE_RATES = {
     "RMB": Decimal("1"),
     "USD": Decimal("7.2"),
