@@ -31,6 +31,11 @@ class BaseErpAdapter(ABC):
                  "material", "category", "is_active"}, ...]"""
 
     @abstractmethod
+    def fetch_customers(self):
+        """返回 [{"erp_id", "number", "name", "contact", "phone", "email",
+                 "currency", "credit_limit", "is_active"}, ...]"""
+
+    @abstractmethod
     def test_connection(self):
         """返回 {"ok": bool, "message": str, "elapsed_ms": int}"""
 

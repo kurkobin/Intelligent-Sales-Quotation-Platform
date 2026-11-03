@@ -122,9 +122,9 @@ uv run python seed_demo_data.py
 
 > 演示数据：`uv run python seed_demo_data.py` 会灌入一套 mock 主数据（可重复运行）
 
-## ERP 集成（一期：主数据同步）
+## ERP 集成（一期主数据 + 二期第 1 批客户）
 
-报价平台从金蝶 K/3 Cloud（星空）**单向**拉取主数据，本期只做三张表：汇率、供应商、料号。
+报价平台从金蝶 K/3 Cloud（星空）**单向**拉取主数据：汇率、供应商、料号（一期），客户（二期第 1 批，先对假 ERP 验证）。
 
 架构上 **ERP 是既有的外部系统（黑盒），报价平台只是它的客户端**：
 
@@ -150,14 +150,14 @@ cd "E:\DeepSeekHarness\prodiction\智能销售报价系统-一期"
 uv run python manage.py erp_sync --what=all
 ```
 
-假 ERP 控制台 <http://127.0.0.1:9900/>：可查看/新增 汇率、供应商、料号，还能「开启故障模拟」演示重试。
+假 ERP 控制台 <http://127.0.0.1:9900/>：可查看/新增 汇率、供应商、料号、客户，还能「开启故障模拟」演示重试。
 
 ### 命令
 
 | 命令 | 说明 |
 |---|---|
-| `manage.py erp_sync --what=all` | 一次同步 汇率 + 供应商 + 料号 |
-| `manage.py erp_sync --what=rates` | 只同步汇率（suppliers / items 同理） |
+| `manage.py erp_sync --what=all` | 一次同步 汇率 + 供应商 + 料号 + 客户 |
+| `manage.py erp_sync --what=rates` | 只同步汇率（suppliers / items / customers 同理） |
 | `manage.py erp_sync --test` | 只测连接，不同步 |
 | `manage.py erp_server` | 从项目侧启动假 ERP（转调独立目录的 `server.py`） |
 
@@ -166,12 +166,13 @@ uv run python manage.py erp_sync --what=all
 - 页面：左侧「系统维护 → **ERP 主数据同步**」（`/erp/sync/`）—— 测连接、点按钮同步、看最近调用日志
 - 日志：`/admin/erp/erplog/` —— 每次调用的报文摘要、错误、耗时
 - 料号：`/admin/masterdata/itemmaster/` —— ERP 同步进来的料号，零件编辑时可挂料号
+- 客户：`/admin/masterdata/customer/` —— ERP 同步进来的客户（编码/联系人/电话/结算币别/信用额度/启用状态）
 - 零件清单**导出带「料号」列**；**导入时按「料号」列自动挂接**（没带料号的老文件仍按位置解析，向下兼容）；BOM COST 页也显示料号
 
 ### 自动化测试
 
 ```cmd
-uv run python manage.py test erp      # 23 项：报文映射 / 幂等 upsert / 失败短路 / 页面权限 / 客户端脱敏
+uv run python manage.py test erp      # 28 项：报文映射 / 幂等 upsert / 失败短路 / 页面权限 / 客户端脱敏
 ```
 
 不联网、不依赖假 ERP 进程（用 `ERP_MODE=offline` 与内置假客户端）。

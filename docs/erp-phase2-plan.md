@@ -1,4 +1,4 @@
-﻿# ERP 集成二期方案（草案）
+# ERP 集成二期方案（草案）
 
 > 一期（主数据同步）已完成并验收：汇率 / 供应商 / 料号 三张表全量 upsert。
 > 本文只写二期要做什么、依赖什么、怎么验收；**代码尚未开始**。
@@ -27,13 +27,18 @@
 
 ## 2. 分批计划
 
-### 第 1 批：客户资料同步（最像一期，先做）
+### 第 1 批：客户资料同步（最像一期，先做）✅ 已完成（2026-11-03，先对假 ERP 验证）
 
 - **接口**：`BD_Customer` → `masterdata.Customer`（新表）
 - **字段**：内码、编码、名称、联系人、电话、邮箱、结算币别、信用额度
 - **做法**：复用一期 `client.py` + 适配器契约，新增 `query_customers()` 与 `sync_customers()`
 - **改哪里**：`erp/adapters/kingdee.py`（表单 ID + FieldKeys）、`erp/services.py`、`masterdata/models.py`、迁移、admin、`erp_sync --what=customers`
 - **验收**：`erp_sync --what=customers` 幂等；后台可选客户；原 `proj.customer` 文本字段保留兼容
+- **落地情况**：
+  - `masterdata.Customer`（迁移 `0004_customer`）、假 ERP 的 `BD_Customer`（4 个客户）+ 控制台新增区
+  - 适配器 `fetch_customers`、`services.sync_customers`、`erp_sync --what=customers`、后台卡片与「同步客户」按钮、admin
+  - 实测：4 条同步成功，重复跑为「更新 4」；停用客户正确落成 `is_active=False`；测试 +3 项
+  - 接真 ERP 时只需确认 `CUSTOMER_FIELDS` 的字段名（重点确认结算币别是否 `FSettleCurrId.FNumber`）
 
 ### 第 2 批：库存 / 未税成本查询（只读，风险低）
 

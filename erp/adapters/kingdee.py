@@ -19,6 +19,10 @@ ITEM_FIELDS = (
     "FMATERIALID,FNumber,FName,FSpecification,"
     "FBaseUnitId.FName,FMaterialGroup.FName,FMaterial.FName,FErpClsID,FForbidStatus"
 )
+CUSTOMER_FIELDS = (
+    "FCUSTID,FNumber,FName,FContact,FPhone,FEmail,"
+    "FSettleCurrId.FNumber,FCreditLimit,FForbidStatus"
+)
 
 # 金蝶即期汇率的汇率类型编码
 SPOT_RATE_TYPE = "001"
@@ -29,6 +33,7 @@ class KingdeeAdapter(BaseErpAdapter):
     form_rates = "BD_ExchangeRate"
     form_suppliers = "BD_Supplier"
     form_items = "BD_MATERIAL"
+    form_customers = "BD_Customer"
 
     def __init__(self, client=None):
         self.client = client or KingdeeClient.from_settings()
@@ -117,6 +122,30 @@ class KingdeeAdapter(BaseErpAdapter):
                 "is_active": is_active_of(record),
             })
         return items
+
+    def fetch_customers(self):
+        customers = []
+        for record in self._records(self.form_customers, CUSTOMER_FIELDS):
+            number = text_of(record.get("FNumber"))
+            name = text_of(record.get("FName"))
+            if not name:
+                continue
+            try:
+                credit_limit = Decimal(str(record.get("FCreditLimit") or "0").strip())
+            except (InvalidOperation, AttributeError, TypeError):
+                credit_limit = Decimal("0")
+            customers.append({
+                "erp_id": text_of(record.get("FCUSTID")),
+                "number": number,
+                "name": name,
+                "contact": text_of(record.get("FContact")),
+                "phone": text_of(record.get("FPhone")),
+                "email": text_of(record.get("FEmail")),
+                "currency": (text_of(record.get("FSettleCurrId.FNumber")) or "RMB").upper(),
+                "credit_limit": credit_limit,
+                "is_active": is_active_of(record),
+            })
+        return customers
 
     # ------------------------------------------------------------------
     def test_connection(self):

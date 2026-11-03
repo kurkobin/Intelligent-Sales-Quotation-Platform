@@ -1,6 +1,7 @@
 from django.contrib import admin
 
 from .models import (
+    Customer,
     ExchangeRate,
     InjectionParam,
     ItemMaster,
@@ -18,6 +19,15 @@ class SupplierAdmin(admin.ModelAdmin):
     list_display = ("name", "number", "contact", "email", "category", "status", "synced_at")
     list_filter = ("status", "category")
     search_fields = ("name", "contact", "email", "number", "erp_id")
+
+
+@admin.register(Customer)
+class CustomerAdmin(admin.ModelAdmin):
+    list_display = ("number", "name", "contact", "phone", "currency", "credit_limit",
+                    "is_active", "synced_at")
+    list_filter = ("is_active", "currency")
+    search_fields = ("number", "name", "contact", "phone", "email", "erp_id")
+    ordering = ("number",)
 
 
 @admin.register(StaffMember)

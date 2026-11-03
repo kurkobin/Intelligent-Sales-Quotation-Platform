@@ -1,10 +1,10 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.conf import settings
 from django.shortcuts import redirect, render
 
-from masterdata.models import ExchangeRate, ItemMaster, Supplier
+from masterdata.models import Customer, ExchangeRate, ItemMaster, Supplier
 
 from . import services
 from .models import ErpLog
@@ -55,9 +55,11 @@ def sync_page(request):
         "rate_count": ExchangeRate.objects.count(),
         "supplier_count": Supplier.objects.count(),
         "item_count": ItemMaster.objects.count(),
+        "customer_count": Customer.objects.count(),
         "rate_synced": _latest_sync(ExchangeRate),
         "supplier_synced": _latest_sync(Supplier),
         "item_synced": _latest_sync(ItemMaster),
+        "customer_synced": _latest_sync(Customer),
         "logs": ErpLog.objects.all()[:12],
         "ok_logs": ErpLog.objects.filter(ok=True).count(),
         "fail_logs": ErpLog.objects.filter(ok=False).count(),

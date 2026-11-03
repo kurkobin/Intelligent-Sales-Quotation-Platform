@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """离线适配器：不联网、不起假 ERP，也能跑通同步流程（自检 / 单测用）。
 
 数据优先读 mock ERP 目录里的 data.py 种子（ERP_MOCK_DIR），
@@ -28,6 +28,11 @@ FALLBACK_SEED = {
          "FMaterialGroup": {"FName": "外购件"}, "FMaterial": {"FName": "钢"},
          "FErpClsID": "1", "FForbidStatus": "A"},
     ],
+    "BD_Customer": [
+        {"FCUSTID": 1, "FNumber": "C001", "FName": "离线演示客户",
+         "FContact": "李四", "FPhone": "0000-0000000", "FEmail": "offline-c@demo.com",
+         "FSettleCurrId": {"FNumber": "RMB"}, "FCreditLimit": 100000, "FForbidStatus": "A"},
+    ],
 }
 
 
@@ -54,6 +59,7 @@ class MockAdapter(BaseErpAdapter):
     form_rates = "BD_ExchangeRate"
     form_suppliers = "BD_Supplier"
     form_items = "BD_MATERIAL"
+    form_customers = "BD_Customer"
 
     def __init__(self, seed=None):
         self.seed = seed or _load_seed()
@@ -109,11 +115,37 @@ class MockAdapter(BaseErpAdapter):
             })
         return rows
 
+    def fetch_customers(self):
+        from decimal import Decimal, InvalidOperation
+
+        rows = []
+        for record in self.seed.get("BD_Customer", []):
+            name = text_of(record.get("FName"))
+            if not name:
+                continue
+            try:
+                credit_limit = Decimal(str(record.get("FCreditLimit") or "0").strip())
+            except (InvalidOperation, AttributeError, TypeError):
+                credit_limit = Decimal("0")
+            rows.append({
+                "erp_id": text_of(record.get("FCUSTID")),
+                "number": text_of(record.get("FNumber")),
+                "name": name,
+                "contact": text_of(record.get("FContact")),
+                "phone": text_of(record.get("FPhone")),
+                "email": text_of(record.get("FEmail")),
+                "currency": (number_of(record.get("FSettleCurrId")) or "RMB").upper(),
+                "credit_limit": credit_limit,
+                "is_active": is_active_of(record),
+            })
+        return rows
+
     def test_connection(self):
         counts = {k: len(v) for k, v in self.seed.items() if isinstance(v, list)}
         return {
             "ok": True,
             "message": f"离线模式（未联网）：本地种子 汇率 {counts.get('BD_ExchangeRate', 0)} / "
-                       f"供应商 {counts.get('BD_Supplier', 0)} / 料号 {counts.get('BD_MATERIAL', 0)}",
+                       f"供应商 {counts.get('BD_Supplier', 0)} / 料号 {counts.get('BD_MATERIAL', 0)} / "
+                       f"客户 {counts.get('BD_Customer', 0)}",
             "elapsed_ms": 0,
         }

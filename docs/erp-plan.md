@@ -518,6 +518,7 @@ E:\DeepSeekHarness\prodiction\
 | 项 | 内容 |
 |---|---|
 | 料号接入业务页面 | 零件清单导出加「料号」列；导入时按「料号」列自动挂接 `ItemMaster`（并带出材质、按 ERP 分组推断零件分类，老文件无表头仍按位置解析）；BOM COST 页显示料号 |
-| 自动化测试 | 新增 `erp/tests.py`，23 项：金蝶报文映射（即期汇率/最新生效日/禁用状态）、幂等 upsert、首次对接认领、失败短路、后台按钮权限、日志脱敏；`manage.py test` 全绿 |
+| 自动化测试 | 新增 `erp/tests.py`，28 项：金蝶报文映射（即期汇率/最新生效日/禁用状态）、幂等 upsert、首次对接认领、失败短路、后台按钮权限、日志脱敏；`manage.py test` 全绿 |
 | 测试抓到的 bug | `number_of()` 对金蝶 `[内码, 编码, 名称]` 数组取成了内码，导致离线同步把币别写成「人民币」；已改为取第 2 段并加回归测试 |
 | 显示口径 | 统一按金蝶方向「1 外币 = X RMB」，`settings.EXCHANGE_RATES` 注释、`ExchangeRate` 字段名、BOM COST 页文案一致 |
+| 二期第 1 批：客户同步 | 新增 `masterdata.Customer`（迁移 `0004_customer`）、假 ERP 的 `BD_Customer`（4 个客户 + 控制台新增区）、`fetch_customers`/`sync_customers`/`erp_sync --what=customers`、后台「同步客户」按钮；实测 4 条、重复跑为更新、停用客户落 `is_active=False`。详见 [erp-phase2-plan.md](erp-phase2-plan.md) |

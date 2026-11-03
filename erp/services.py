@@ -14,13 +14,13 @@ from dataclasses import dataclass
 from django.db import transaction
 from django.utils import timezone
 
-from masterdata.models import ExchangeRate, ItemMaster, Supplier
+from masterdata.models import Customer, ExchangeRate, ItemMaster, Supplier
 
 from .adapters import get_adapter
 from .client import ErpError
 
-SYNC_TARGETS = ("rates", "suppliers", "items")
-LABELS = {"rates": "汇率", "suppliers": "供应商", "items": "料号"}
+SYNC_TARGETS = ("rates", "suppliers", "items", "customers")
+LABELS = {"rates": "汇率", "suppliers": "供应商", "items": "料号", "customers": "客户"}
 BASE_CURRENCY = "RMB"
 
 
@@ -86,8 +86,13 @@ def sync_items(adapter=None):
     return _sync("items", "料号", adapter, adapter.fetch_items, _upsert_items)
 
 
+def sync_customers(adapter=None):
+    adapter = adapter or get_adapter()
+    return _sync("customers", "客户", adapter, adapter.fetch_customers, _upsert_customers)
+
+
 def sync_all(adapter=None):
-    """按 汇率 → 供应商 → 料号 顺序同步；第一个失败后其余标记「跳过」。"""
+    """按 汇率 → 供应商 → 料号 → 客户 顺序同步；第一个失败后其余标记「跳过」。"""
     adapter = adapter or get_adapter()
     try:
         _login_once(adapter)  # 只登一次；连不上就直接整批标记失败，免得每张表都重试 3 次
@@ -111,7 +116,7 @@ def sync_all(adapter=None):
         result = _sync(entity, LABELS[entity], adapter,
                        getattr(adapter, f"fetch_{entity}"),
                        {"rates": _upsert_rates, "suppliers": _upsert_suppliers,
-                        "items": _upsert_items}[entity])
+                        "items": _upsert_items, "customers": _upsert_customers}[entity])
         results[entity] = result
         if not result.ok:
             failure = result.error
@@ -119,12 +124,12 @@ def sync_all(adapter=None):
 
 
 def sync_one(what, adapter=None):
-    """管理命令和后台按钮共用：what 取 rates/suppliers/items/all。"""
+    """管理命令和后台按钮共用：what 取 rates/suppliers/items/customers/all。"""
     what = (what or "all").lower()
     if what == "all":
         return sync_all(adapter)
     if what not in SYNC_TARGETS:
-        raise ValueError(f"未知同步对象：{what}（可选 rates/suppliers/items/all）")
+        raise ValueError(f"未知同步对象：{what}（可选 rates/suppliers/items/customers/all）")
     adapter = adapter or get_adapter()
     try:
         _login_once(adapter)
@@ -133,7 +138,7 @@ def sync_one(what, adapter=None):
     return {what: _sync(what, LABELS[what], adapter,
                         getattr(adapter, f"fetch_{what}"),
                         {"rates": _upsert_rates, "suppliers": _upsert_suppliers,
-                         "items": _upsert_items}[what])}
+                         "items": _upsert_items, "customers": _upsert_customers}[what])}
 
 
 def test_connection(adapter=None):
@@ -255,6 +260,44 @@ def _upsert_items(record, now):
     }
     if target is None:
         ItemMaster.objects.create(number=number, **fields)
+        return "created"
+    for key, value in fields.items():
+        setattr(target, key, value)
+    target.save(update_fields=list(fields.keys()))
+    return "updated"
+
+
+def _match_customer(record):
+    """内码 → 编码 → 同名旧数据，规则与供应商一致。"""
+    if record.get("erp_id"):
+        found = Customer.objects.filter(erp_id=record["erp_id"]).first()
+        if found:
+            return found
+    if record.get("number"):
+        found = Customer.objects.filter(number=record["number"]).first()
+        if found:
+            return found
+    return Customer.objects.filter(name=record["name"], erp_id="").first()
+
+
+def _upsert_customers(record, now):
+    if not record.get("name"):
+        return "skipped"
+    target = _match_customer(record)
+    fields = {
+        "erp_id": record.get("erp_id", ""),
+        "number": record.get("number", ""),
+        "name": record["name"],
+        "contact": record.get("contact", ""),
+        "phone": record.get("phone", ""),
+        "email": record.get("email", ""),
+        "currency": record.get("currency", "RMB"),
+        "credit_limit": record.get("credit_limit", 0),
+        "is_active": record.get("is_active", True),
+        "synced_at": now,
+    }
+    if target is None:
+        Customer.objects.create(**fields)
         return "created"
     for key, value in fields.items():
         setattr(target, key, value)

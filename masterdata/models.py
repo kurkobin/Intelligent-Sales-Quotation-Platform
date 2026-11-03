@@ -26,6 +26,32 @@ class Supplier(models.Model):
         return self.name
 
 
+class Customer(models.Model):
+    """客户主数据（来自 ERP 的 BD_Customer，二期第 1 批）
+
+    平台里的专案目前用文本记录客户名；等本表数据稳定后，
+    可把 Project.customer 逐步迁成外键（需业务确认后另做）。
+    """
+    erp_id = models.CharField("ERP内码", max_length=60, blank=True, db_index=True)
+    number = models.CharField("客户编码", max_length=60, blank=True, db_index=True)
+    name = models.CharField("客户名称", max_length=200)
+    contact = models.CharField("联系人", max_length=50, blank=True)
+    phone = models.CharField("电话", max_length=50, blank=True)
+    email = models.EmailField("邮箱", blank=True)
+    currency = models.CharField("结算币别", max_length=10, default="RMB")
+    credit_limit = models.DecimalField("信用额度", max_digits=14, decimal_places=2, default=0)
+    is_active = models.BooleanField("启用", default=True)
+    synced_at = models.DateTimeField("最后同步", null=True, blank=True)
+
+    class Meta:
+        verbose_name = "客户主数据"
+        verbose_name_plural = "客户主数据"
+        ordering = ["number"]
+
+    def __str__(self):
+        return f"{self.number} {self.name}" if self.number else self.name
+
+
 class StaffMember(models.Model):
     """公司内部部门人员"""
     name = models.CharField("姓名", max_length=50)

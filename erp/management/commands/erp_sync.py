@@ -16,7 +16,8 @@ class Command(BaseCommand):
     help = "从 ERP 同步主数据：--what=rates|suppliers|items|all"
 
     def add_arguments(self, parser):
-        parser.add_argument("--what", default="all", choices=["rates", "suppliers", "items", "all"],
+        parser.add_argument("--what", default="all",
+                            choices=["rates", "suppliers", "items", "customers", "all"],
                             help="同步哪张表，默认 all")
         parser.add_argument("--test", action="store_true", help="只测连接，不同步")
 

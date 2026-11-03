@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """ERP 同步的自动化测试（不联网、不依赖假 ERP 进程）。
 
     uv run python manage.py test erp -v 2
@@ -16,11 +16,17 @@ from django.contrib.auth.models import User
 from django.core.management import call_command
 from django.test import SimpleTestCase, TestCase, override_settings
 
-from masterdata.models import ExchangeRate, ItemMaster, Supplier
+from masterdata.models import Customer, ExchangeRate, ItemMaster, Supplier
 
 from . import services
 from .adapters.base import BaseErpAdapter, is_active_of, number_of, text_of
-from .adapters.kingdee import ITEM_FIELDS, RATE_FIELDS, SUPPLIER_FIELDS, KingdeeAdapter
+from .adapters.kingdee import (
+    CUSTOMER_FIELDS,
+    ITEM_FIELDS,
+    RATE_FIELDS,
+    SUPPLIER_FIELDS,
+    KingdeeAdapter,
+)
 from .client import ErpConnectionError, KingdeeClient, _extract_erp_error, _summarize
 
 
@@ -86,6 +92,19 @@ class AdapterMappingTests(SimpleTestCase):
             "category": "冲压件", "is_active": True,
         })
 
+    def test_customer_fields(self):
+        rows = [[4001, "C001", "深圳华创电子", "陈志强", "0755-8888 1001",
+                 "c@demo.com", "USD", 500000, "B"]]
+        adapter = KingdeeAdapter(client=FakeClient(rows))
+        customers = adapter.fetch_customers()
+
+        self.assertEqual(customers[0]["erp_id"], "4001")
+        self.assertEqual(customers[0]["number"], "C001")
+        self.assertEqual(customers[0]["name"], "深圳华创电子")
+        self.assertEqual(customers[0]["currency"], "USD")
+        self.assertEqual(customers[0]["credit_limit"], Decimal("500000"))
+        self.assertFalse(customers[0]["is_active"])
+
     def test_field_keys_order_matches_columns(self):
         """二维数组没有字段名，列顺序必须和 FieldKeys 一一对应。"""
         self.assertEqual(
@@ -94,6 +113,7 @@ class AdapterMappingTests(SimpleTestCase):
         )
         self.assertEqual(len(SUPPLIER_FIELDS.split(",")), 6)
         self.assertEqual(len(ITEM_FIELDS.split(",")), 9)
+        self.assertEqual(len(CUSTOMER_FIELDS.split(",")), 9)
 
 
 class BaseHelperTests(SimpleTestCase):
@@ -117,12 +137,13 @@ class BaseHelperTests(SimpleTestCase):
 # --------------------------------------------------------------------------
 class StubAdapter(BaseErpAdapter):
     name = "stub"
-    form_rates = form_suppliers = form_items = "STUB"
+    form_rates = form_suppliers = form_items = form_customers = "STUB"
 
-    def __init__(self, rates=None, suppliers=None, items=None, fail=False):
+    def __init__(self, rates=None, suppliers=None, items=None, customers=None, fail=False):
         self._rates = rates or []
         self._suppliers = suppliers or []
         self._items = items or []
+        self._customers = customers or []
         self._fail = fail
 
     def fetch_rates(self):
@@ -136,6 +157,9 @@ class StubAdapter(BaseErpAdapter):
     def fetch_items(self):
         return self._items
 
+    def fetch_customers(self):
+        return self._customers
+
     def test_connection(self):
         return {"ok": True, "message": "stub", "elapsed_ms": 0}
 
@@ -145,24 +169,56 @@ SUPPLIER = {"erp_id": "2001", "number": "S001", "name": "东莞精密五金",
             "contact": "张伟", "email": "a@demo.com", "is_active": True}
 ITEM = {"erp_id": "3001", "number": "1001", "name": "前框支架", "spec": "SECC",
         "unit": "个", "material": "SECC", "category": "冲压件", "is_active": True}
+CUSTOMER = {"erp_id": "4001", "number": "C001", "name": "深圳华创电子",
+            "contact": "陈志强", "phone": "0755-8888 1001", "email": "c@demo.com",
+            "currency": "RMB", "credit_limit": Decimal("500000"), "is_active": True}
 
 
 class SyncServiceTests(TestCase):
     def test_sync_creates_then_updates(self):
-        adapter = StubAdapter(rates=[RATE], suppliers=[SUPPLIER], items=[ITEM])
+        adapter = StubAdapter(rates=[RATE], suppliers=[SUPPLIER], items=[ITEM],
+                              customers=[CUSTOMER])
 
         first = services.sync_all(adapter)
         self.assertEqual(first["rates"].created, 1)
         self.assertEqual(first["suppliers"].created, 1)
         self.assertEqual(first["items"].created, 1)
+        self.assertEqual(first["customers"].created, 1)
         self.assertEqual(ExchangeRate.objects.count(), 1)
         self.assertEqual(ItemMaster.objects.count(), 1)
+        self.assertEqual(Customer.objects.count(), 1)
 
         second = services.sync_all(adapter)
         self.assertEqual(second["rates"].created, 0)
         self.assertEqual(second["rates"].updated, 1)
         self.assertEqual(second["items"].created, 0)
+        self.assertEqual(second["customers"].created, 0)
+        self.assertEqual(second["customers"].updated, 1)
         self.assertEqual(ItemMaster.objects.count(), 1)
+        self.assertEqual(Customer.objects.count(), 1)
+
+    def test_customer_fields_persisted(self):
+        services.sync_customers(StubAdapter(customers=[CUSTOMER]))
+
+        row = Customer.objects.get(number="C001")
+        self.assertEqual(row.name, "深圳华创电子")
+        self.assertEqual(row.phone, "0755-8888 1001")
+        self.assertEqual(row.currency, "RMB")
+        self.assertEqual(row.credit_limit, Decimal("500000"))
+        self.assertTrue(row.is_active)
+        self.assertEqual(row.erp_id, "4001")
+        self.assertIsNotNone(row.synced_at)
+
+    def test_first_sync_adopts_existing_customer_with_same_name(self):
+        old = Customer.objects.create(name="深圳华创电子", contact="旧联系人")
+
+        services.sync_customers(StubAdapter(customers=[CUSTOMER]))
+
+        self.assertEqual(Customer.objects.count(), 1)
+        old.refresh_from_db()
+        self.assertEqual(old.erp_id, "4001")
+        self.assertEqual(old.number, "C001")
+        self.assertEqual(old.contact, "陈志强")
 
     def test_rate_keyed_by_year_and_currency(self):
         ExchangeRate.objects.create(year=2026, base_currency="RMB", currency="USD",
@@ -198,7 +254,7 @@ class SyncServiceTests(TestCase):
 
     def test_unknown_target_raises(self):
         with self.assertRaises(ValueError):
-            services.sync_one("customers")
+            services.sync_one("invoices")
 
     def test_test_connection_is_offline_friendly(self):
         info = services.test_connection(StubAdapter())
@@ -218,11 +274,20 @@ class CommandTests(TestCase):
         self.assertEqual(ExchangeRate.objects.count(), 1)
         self.assertEqual(Supplier.objects.count(), 1)
         self.assertEqual(ItemMaster.objects.count(), 1)
+        self.assertEqual(Customer.objects.count(), 1)
 
         call_command("erp_sync", "--what=all", stdout=io.StringIO())
         self.assertEqual(ExchangeRate.objects.count(), 1)
         self.assertEqual(Supplier.objects.count(), 1)
         self.assertEqual(ItemMaster.objects.count(), 1)
+        self.assertEqual(Customer.objects.count(), 1)
+
+    def test_erp_sync_customers_only(self):
+        out = io.StringIO()
+        call_command("erp_sync", "--what=customers", stdout=out)
+        self.assertIn("客户", out.getvalue())
+        self.assertEqual(Customer.objects.count(), 1)
+        self.assertEqual(Supplier.objects.count(), 0)
 
     def test_erp_sync_test_mode(self):
         out = io.StringIO()
@@ -256,7 +321,15 @@ class PageTests(TestCase):
         response = self.client.post("/erp/sync/", {"action": "sync", "what": "all"}, follow=True)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(ExchangeRate.objects.count(), 1)
+        self.assertEqual(Customer.objects.count(), 1)
         self.assertContains(response, "同步成功")
+
+    def test_sync_customers_button(self):
+        self.client.force_login(self.staff)
+        response = self.client.post("/erp/sync/", {"action": "sync", "what": "customers"}, follow=True)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(Customer.objects.count(), 1)
+        self.assertContains(response, "同步成功：客户 1")
 
 
 # --------------------------------------------------------------------------
